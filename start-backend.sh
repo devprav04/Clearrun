@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# CleanRun IMMS — Start backend for beta testing
-# Runs Gunicorn on port 8000. Run ngrok separately in another terminal.
+# CleanRun IMMS — Start backend + Cloudflare Tunnel
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,22 +13,24 @@ echo "==> Applying migrations..."
 python manage.py migrate --noinput
 
 echo "==> Starting Gunicorn on http://0.0.0.0:8000 ..."
-echo ""
-echo "  In a SECOND terminal, run:"
-echo "    ngrok http 8000"
-echo ""
-echo "  Then:"
-echo "  1. Copy the ngrok HTTPS URL (e.g. https://abc123.ngrok-free.app)"
-echo "  2. Paste it into frontend/.env.production as:"
-echo "       VITE_API_URL=https://abc123.ngrok-free.app/api/"
-echo "  3. Add it to .env CORS_ALLOWED_ORIGINS"
-echo "  4. Rebuild & redeploy frontend to Vercel"
-echo ""
-
-exec gunicorn cleanrun.wsgi:application \
+gunicorn cleanrun.wsgi:application \
   --bind "0.0.0.0:8000" \
   --workers 3 \
   --timeout 120 \
-  --access-logfile - \
-  --error-logfile - \
-  --log-level info
+  --access-logfile logs/access.log \
+  --error-logfile logs/error.log \
+  --daemon
+
+echo "==> Starting Cloudflare Tunnel..."
+~/.local/bin/cloudflared tunnel --url http://localhost:8000 \
+  --logfile /tmp/cf.log --no-autoupdate &
+
+sleep 4
+CF_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | tail -1)
+echo ""
+echo "    Tunnel URL: $CF_URL"
+echo ""
+echo "  If this URL changed since last time, run:"
+echo "    bash update-url.sh"
+echo ""
+echo "  Frontend: https://frontend-xenory.vercel.app"

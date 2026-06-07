@@ -127,8 +127,7 @@ _cors_origins = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,ht
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^https://.*\.vercel\.app$',
-    r'^https://.*\.ngrok-free\.dev$',
-    r'^https://.*\.ngrok-free\.app$',
+    r'^https://.*\.trycloudflare\.com$',
 ]
 CORS_ALLOW_CREDENTIALS = True
 
