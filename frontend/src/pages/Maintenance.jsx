@@ -50,7 +50,7 @@ function TicketModal({ ticket, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('instruments/').then(r => setInstruments(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
     api.get('auth/users/').then(r => setUsers(r.data?.results || r.data || [])).catch(() => {});
   }, []);
 
@@ -129,8 +129,8 @@ function AmcModal({ contract, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('instruments/').then(r => setInstruments(r.data?.results || r.data || []));
-    api.get('vendors/').then(r => setVendors(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
+    api.get('vendors/?page_size=200').then(r => setVendors(r.data?.results || r.data || []));
   }, []);
 
   const handleSubmit = async e => {
@@ -208,7 +208,7 @@ function CalibrationModal({ record, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('instruments/').then(r => setInstruments(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
   }, []);
 
   const handleSubmit = async e => {
@@ -340,7 +340,7 @@ export default function Maintenance() {
     setLoading(true);
     try {
       const [t, a, c] = await Promise.all([
-        api.get('maintenance/tickets/'), api.get('maintenance/amc/'), api.get('maintenance/calibration/'),
+        api.get('maintenance/tickets/?page_size=200'), api.get('maintenance/amc/?page_size=200'), api.get('maintenance/calibration/?page_size=200'),
       ]);
       setData({
         tickets: t.data?.results || t.data || [],

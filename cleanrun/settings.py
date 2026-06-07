@@ -123,12 +123,7 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
-_cors_origins = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://.*\.vercel\.app$',
-    r'^https://.*\.trycloudflare\.com$',
-]
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')

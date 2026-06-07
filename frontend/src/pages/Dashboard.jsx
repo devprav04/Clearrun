@@ -27,7 +27,7 @@ function BreakdownModal({ onClose, onSubmit }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get('instruments/').then(r => setInstruments(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
   }, []);
 
   const handleSubmit = async e => {
@@ -98,7 +98,7 @@ export default function Dashboard() {
         setMgr(m);
       }
       if (user?.role === 'technician') {
-        const { data: t } = await api.get('maintenance/tickets/');
+        const { data: t } = await api.get('maintenance/tickets/?page_size=200');
         setTickets((t?.results || t || []).filter(x => x.assigned_to === user.id));
       }
     } catch (_) { /* errors surface via empty state */ }

@@ -242,8 +242,8 @@ export default function Instruments() {
   const fetchAll = () => {
     setLoading(true);
     Promise.all([
-      api.get('instruments/'),
-      isAdmin ? api.get('vendors/') : Promise.resolve({ data: [] }),
+      api.get('instruments/?page_size=200'),
+      isAdmin ? api.get('vendors/?page_size=200') : Promise.resolve({ data: [] }),
     ]).then(([instRes, vendorRes]) => {
       setInstruments(instRes.data?.results || instRes.data || []);
       setVendors(vendorRes.data?.results || vendorRes.data || []);

@@ -95,7 +95,7 @@ function PartModal({ part, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('vendors/').then(r => setVendors(r.data?.results || r.data || [])).catch(() => {});
+    api.get('vendors/?page_size=200').then(r => setVendors(r.data?.results || r.data || [])).catch(() => {});
   }, []);
 
   const handleSubmit = async e => {
@@ -182,7 +182,7 @@ export default function Inventory() {
 
   const fetchParts = async () => {
     setLoading(true);
-    try { const r = await api.get('inventory/parts/'); setParts(r.data?.results || r.data || []); }
+    try { const r = await api.get('inventory/parts/?page_size=200'); setParts(r.data?.results || r.data || []); }
     catch (_) { /* errors surface via empty state */ }
     finally { setLoading(false); }
   };

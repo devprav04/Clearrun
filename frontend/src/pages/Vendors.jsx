@@ -362,7 +362,7 @@ export default function Vendors() {
 
   const fetchVendors = async () => {
     setLoading(true);
-    try { const r = await api.get('instruments/vendors/'); setVendors(r.data?.results || r.data || []); }
+    try { const r = await api.get('instruments/vendors/?page_size=200'); setVendors(r.data?.results || r.data || []); }
     catch { toast('Failed to load vendors.', 'error'); }
     finally { setLoading(false); }
   };
