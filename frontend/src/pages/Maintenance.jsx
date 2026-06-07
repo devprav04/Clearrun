@@ -289,9 +289,11 @@ function ModalActions({ onClose, loading, label }) {
 /* ─── CRUD Table ────────────────────────────────────────────────── */
 function CrudTable({ rows, columns, emptyIcon: Icon, emptyText, isAdmin, onEdit, onDelete }) {
   if (!rows.length) return (
-    <div className="surface" style={{ padding: '64px 0', textAlign: 'center' }}>
-      <Icon size={40} color="var(--tx-3)" style={{ margin: '0 auto 12px' }} />
-      <p className="t-body">{emptyText}</p>
+    <div className="surface">
+      <div className="empty-state">
+        <div className="empty-state-icon"><Icon size={22} color="var(--tx-3)" /></div>
+        <p className="t-body">{emptyText}</p>
+      </div>
     </div>
   );
   return (
@@ -381,24 +383,18 @@ export default function Maintenance() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 4, width: 'fit-content', flexWrap: 'wrap' }}>
+      <div className="tab-bar">
         {TABS.map(({ id, label, icon: Icon }) => {
           const count = data[id === 'tickets' ? 'tickets' : id === 'amc' ? 'amc' : 'calibration']?.length || 0;
           const active = tab === id;
           return (
-            <button key={id} onClick={() => setTab(id)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
-              borderRadius: 'var(--r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: '0.8125rem', fontWeight: 500, transition: 'all .12s', whiteSpace: 'nowrap',
-              background: active ? 'var(--tx-1)' : 'transparent',
-              color: active ? 'var(--bg)' : 'var(--tx-2)',
-            }}>
+            <button key={id} onClick={() => setTab(id)} className={`tab-btn${active ? ' active' : ''}`}>
               <Icon size={13} />
               {label}
               <span style={{
                 fontSize: '0.65rem', fontWeight: 700, padding: '1px 6px', borderRadius: 9999,
-                background: active ? 'rgba(0,0,0,.25)' : 'var(--bg-4)',
-                color: active ? '#fff' : 'var(--tx-2)',
+                background: active ? 'color-mix(in srgb,var(--accent) 15%,transparent)' : 'var(--bg-4)',
+                color: active ? 'var(--accent)' : 'var(--tx-3)',
               }}>{count}</span>
             </button>
           );

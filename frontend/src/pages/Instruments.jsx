@@ -335,9 +335,11 @@ export default function Instruments() {
       <p className="t-small">{filtered.length} results</p>
 
       {filtered.length === 0 ? (
-        <div className="surface" style={{ padding: '64px 0', textAlign: 'center' }}>
-          <FlaskConical size={40} color="var(--tx-3)" style={{ margin: '0 auto 12px' }} />
-          <p className="t-body">No instruments found</p>
+        <div className="surface">
+          <div className="empty-state">
+            <div className="empty-state-icon"><FlaskConical size={22} color="var(--tx-3)" /></div>
+            <p className="t-body">No instruments found</p>
+          </div>
         </div>
       ) : (
         <div className="surface" style={{ overflow: 'hidden' }}>

@@ -249,9 +249,11 @@ export default function Inventory() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="surface" style={{ padding: '64px 0', textAlign: 'center' }}>
-          <Package size={40} color="var(--tx-3)" style={{ margin: '0 auto 12px' }} />
-          <p className="t-body">No parts found</p>
+        <div className="surface">
+          <div className="empty-state">
+            <div className="empty-state-icon"><Package size={22} color="var(--tx-3)" /></div>
+            <p className="t-body">No parts found</p>
+          </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12 }}>

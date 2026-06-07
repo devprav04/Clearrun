@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutGrid, Microscope, Truck, ClipboardList, Archive,
-  TrendingUp, UsersRound, ScrollText, FilePen, SlidersHorizontal,
+  TrendingUp, UsersRound, ScrollText, SlidersHorizontal,
   FlaskConical, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -17,18 +17,18 @@ const CORE = [
 ];
 
 const ADMIN = [
-  { to: '/reports',       icon: TrendingUp,        label: 'Reports'      },
-  { to: '/users',         icon: UsersRound,        label: 'Users'        },
-  { to: '/audit-log',     icon: ScrollText,        label: 'Audit Log'    },
-  { to: '/pdf-templates', icon: FilePen,           label: 'PDF Templates'},
-  { to: '/settings',      icon: SlidersHorizontal, label: 'Settings'     },
+  { to: '/reports',   icon: TrendingUp,        label: 'Reports'   },
+  { to: '/users',     icon: UsersRound,        label: 'Users'     },
+  { to: '/audit-log', icon: ScrollText,        label: 'Audit Log' },
+  { to: '/settings',  icon: SlidersHorizontal, label: 'Settings'  },
 ];
 
 function Item({ to, icon: Icon, label, collapsed }) {
   return (
     <NavLink to={to} end={to === '/'} title={collapsed ? label : undefined}>
       {({ isActive }) => (
-        <span className={`nav-item${isActive ? ' active' : ''}`} style={{ position: 'relative', justifyContent: collapsed ? 'center' : undefined }}>
+        <span className={`nav-item${isActive ? ' active' : ''}`}
+          style={{ position: 'relative', justifyContent: collapsed ? 'center' : undefined }}>
           <Icon size={15} strokeWidth={isActive ? 2.2 : 1.8} style={{ flexShrink: 0 }} />
           {!collapsed && label}
           {collapsed && (
@@ -39,7 +39,7 @@ function Item({ to, icon: Icon, label, collapsed }) {
               padding: '5px 10px', borderRadius: 'var(--r-md)',
               whiteSpace: 'nowrap', pointerEvents: 'none',
               opacity: 0, transition: 'opacity .1s',
-              boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+              boxShadow: '0 4px 12px rgba(0,0,0,.25)',
               zIndex: 200,
             }} className="nav-tooltip">
               {label}
@@ -64,7 +64,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Tooltip hover style injected once */}
       <style>{`.nav-item:hover .nav-tooltip { opacity: 1 !important; }`}</style>
 
       <aside style={{
@@ -79,26 +78,26 @@ export default function Sidebar() {
 
         {/* Brand */}
         <div style={{
-          height: 52, display: 'flex', alignItems: 'center',
-          padding: collapsed ? '0 14px' : '0 14px',
-          gap: 10, borderBottom: '1px solid var(--line)',
-          overflow: 'hidden',
+          height: 56, display: 'flex', alignItems: 'center',
+          padding: '0 14px', gap: 10,
+          borderBottom: '1px solid var(--line)', overflow: 'hidden',
         }}>
           <div style={{
-            width: 26, height: 26, borderRadius: 'var(--r-md)',
-            background: 'var(--tx-1)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', flexShrink: 0,
+            width: 28, height: 28, borderRadius: 'var(--r-md)',
+            background: 'var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, boxShadow: '0 2px 8px color-mix(in srgb,var(--accent) 40%,transparent)',
           }}>
             {settings?.logo_url
               ? <img src={settings.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} alt="" />
-              : <FlaskConical size={13} color="var(--bg)" strokeWidth={2.2} />}
+              : <FlaskConical size={14} color="#fff" strokeWidth={2.2} />}
           </div>
           {!collapsed && (
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {settings?.company_name || 'CleanRun'}
               </p>
-              <p style={{ fontSize: '0.65rem', color: 'var(--tx-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p style={{ fontSize: '0.625rem', color: 'var(--tx-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
                 IMMS
               </p>
             </div>
@@ -119,8 +118,12 @@ export default function Sidebar() {
           )}
         </nav>
 
-        {/* Status dot */}
-        <div style={{ height: 44, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', padding: collapsed ? '0 18px' : '0 14px', gap: 8 }}>
+        {/* Status footer */}
+        <div style={{
+          height: 44, borderTop: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center',
+          padding: collapsed ? '0 18px' : '0 14px', gap: 8,
+        }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px var(--green)', flexShrink: 0 }} />
           {!collapsed && <span style={{ fontSize: '0.6875rem', color: 'var(--tx-3)' }}>Online · v2.0</span>}
         </div>
@@ -130,12 +133,13 @@ export default function Sidebar() {
           onClick={() => setCollapsed(c => !c)}
           title={collapsed ? 'Expand' : 'Collapse'}
           style={{
-            position: 'absolute', right: -13, top: 68,
+            position: 'absolute', right: -13, top: 72,
             width: 26, height: 26, borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--bg-2)', border: '1px solid var(--line-2)',
             color: 'var(--tx-3)', cursor: 'pointer', zIndex: 10,
             transition: 'color .12s, border-color .12s',
+            boxShadow: 'var(--shadow-sm)',
           }}
           onMouseEnter={e => { e.currentTarget.style.color = 'var(--tx-1)'; e.currentTarget.style.borderColor = 'var(--tx-3)'; }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--tx-3)'; e.currentTarget.style.borderColor = 'var(--line-2)'; }}

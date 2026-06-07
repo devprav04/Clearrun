@@ -399,17 +399,11 @@ export default function Settings() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 4, width: 'fit-content', flexWrap: 'wrap' }}>
+      <div className="tab-bar">
         {TABS.map(({ id, label, Icon }) => {
           const active = tab === id;
           return (
-            <button key={id} onClick={() => setTab(id)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
-              borderRadius: 'var(--r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: '0.8125rem', fontWeight: 500, transition: 'all .12s',
-              background: active ? 'var(--tx-1)' : 'transparent',
-              color: active ? 'var(--bg)' : 'var(--tx-2)',
-            }}>
+            <button key={id} onClick={() => setTab(id)} className={`tab-btn${active ? ' active' : ''}`}>
               <Icon size={13} />{label}
             </button>
           );

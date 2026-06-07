@@ -13,17 +13,16 @@ const MOBILE_NAV = [
 ];
 
 const TITLES = {
-  '/':              'Dashboard',
-  '/instruments':   'Instruments',
-  '/vendors':       'Vendors',
-  '/maintenance':   'Maintenance',
-  '/inventory':     'Inventory',
-  '/reports':       'Reports',
-  '/users':         'User Management',
-  '/audit-log':     'Audit Log',
-  '/settings':      'Settings',
-  '/profile':       'Profile',
-  '/pdf-templates': 'PDF Templates',
+  '/':            'Dashboard',
+  '/instruments': 'Instruments',
+  '/vendors':     'Vendors',
+  '/maintenance': 'Maintenance',
+  '/inventory':   'Inventory',
+  '/reports':     'Reports',
+  '/users':       'User Management',
+  '/audit-log':   'Audit Log',
+  '/settings':    'Settings',
+  '/profile':     'Profile',
 };
 
 function IconBtn({ onClick, title, children }) {
@@ -47,7 +46,7 @@ function IconBtn({ onClick, title, children }) {
 function ThemeToggle() {
   const { theme, toggle } = useTheme();
   return (
-    <IconBtn onClick={toggle} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
+    <IconBtn onClick={toggle} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
       {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
     </IconBtn>
   );
@@ -57,21 +56,32 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const title = TITLES[pathname] ?? 'CleanRun IMMS';
+
+  // Title — handle instrument detail routes
+  const isInstrumentDetail = pathname.startsWith('/instruments/') && pathname !== '/instruments';
+  const title = isInstrumentDetail ? 'Instrument Detail' : (TITLES[pathname] ?? 'CleanRun IMMS');
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Header */}
+        {/* Desktop header */}
         <header style={{
-          height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 20px', borderBottom: '1px solid var(--line)',
+          height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px', borderBottom: '1px solid var(--line)',
           background: 'var(--bg)', flexShrink: 0,
           position: 'sticky', top: 0, zIndex: 50,
+          backdropFilter: 'blur(8px)',
         }}>
-          <span className="t-title">{title}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <span style={{
+              fontSize: '0.8125rem', fontWeight: 600,
+              color: 'var(--tx-1)', letterSpacing: '-0.01em',
+            }}>
+              {title}
+            </span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ThemeToggle />
             <ProfileDropdown />
@@ -94,7 +104,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: '24px 24px', overflowY: 'auto' }} className="page-enter">
+        <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }} className="page-enter">
           {children}
         </main>
       </div>
@@ -109,7 +119,7 @@ export default function Layout({ children }) {
           <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', gap: 3, fontSize: '0.6rem', fontWeight: 500,
-            color: isActive ? 'var(--tx-1)' : 'var(--tx-3)', textDecoration: 'none',
+            color: isActive ? 'var(--accent)' : 'var(--tx-3)', textDecoration: 'none',
           })}>
             {({ isActive }) => <>
               <Icon size={18} strokeWidth={isActive ? 2.2 : 1.7} />

@@ -16,7 +16,6 @@ import Settings from './pages/Settings';
 import AuditLog from './pages/AuditLog';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
-import PdfTemplateEditor from './pages/PdfTemplateEditor';
 import Vendors from './pages/Vendors';
 
 function AppRoutes() {
@@ -34,7 +33,6 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute roles={['manager']}><Layout><Settings /></Layout></ProtectedRoute>} />
       <Route path="/audit-log" element={<ProtectedRoute roles={['manager']}><Layout><AuditLog /></Layout></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute roles={['manager']}><Layout><UserManagement /></Layout></ProtectedRoute>} />
-      <Route path="/pdf-templates" element={<ProtectedRoute roles={['manager']}><Layout><PdfTemplateEditor /></Layout></ProtectedRoute>} />
       <Route path="/vendors" element={<ProtectedRoute><Layout><Vendors /></Layout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

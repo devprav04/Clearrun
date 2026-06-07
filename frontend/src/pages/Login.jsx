@@ -41,10 +41,10 @@ export default function Login() {
       <div style={{ width: '100%', maxWidth: 380 }} className="page-enter">
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'var(--tx-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', boxShadow: '0 2px 8px color-mix(in srgb,#4f46e5 40%,transparent)' }}>
             {settings?.logo_url
               ? <img src={settings.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-              : <FlaskConical size={17} color="var(--bg)" strokeWidth={2} />}
+              : <FlaskConical size={17} color="#fff" strokeWidth={2} />}
           </div>
           <div>
             <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2 }}>{settings?.company_name || 'CleanRun'}</p>

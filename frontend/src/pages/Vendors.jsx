@@ -418,9 +418,11 @@ export default function Vendors() {
           <span style={{ width: 20, height: 20, border: '2px solid var(--line-2)', borderTopColor: 'var(--tx-2)', borderRadius: '50%' }} className="animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="surface" style={{ padding: '64px 0', textAlign: 'center' }}>
-          <Building2 size={40} color="var(--tx-3)" style={{ margin: '0 auto 12px', opacity: .3 }} />
-          <p className="t-body">{isAdmin ? 'No vendors found. Add your first vendor.' : 'No vendors added yet.'}</p>
+        <div className="surface">
+          <div className="empty-state">
+            <div className="empty-state-icon"><Building2 size={22} color="var(--tx-3)" /></div>
+            <p className="t-body">{isAdmin ? 'No vendors found. Add your first vendor.' : 'No vendors added yet.'}</p>
+          </div>
         </div>
       ) : (
         <div className="surface" style={{ overflow: 'hidden' }}>
