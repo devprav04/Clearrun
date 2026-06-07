@@ -7,3 +7,5 @@ Pillow>=10.0
 celery>=5.3
 django-celery-beat>=2.5
 python-decouple>=3.8
+gunicorn>=21.2
+whitenoise[brotli]>=6.6

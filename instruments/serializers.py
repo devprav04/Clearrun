@@ -15,10 +15,7 @@ class VendorSerializer(serializers.ModelSerializer):
         return obj.instruments.count()
 
     def get_active_amc_count(self, obj):
-        try:
-            return obj.amccontract_set.filter(status='active').count()
-        except Exception:
-            return 0
+        return obj.amccontract_set.filter(status='active').count()
 
 
 class InstrumentSerializer(serializers.ModelSerializer):

@@ -69,7 +69,7 @@ export default function AuditLog() {
       const res = await api.get(`/auth/audit-log/?${params}`);
       if (res.data?.results !== undefined) { setLogs(res.data.results); setTotal(res.data.count); }
       else { setLogs(res.data); setTotal(res.data.length); }
-    } catch (err) { console.error(err); }
+    } catch (_) { /* errors surface via empty state */ }
     finally { setLoading(false); }
   }, [search, filterUser, filterAction, page]);
 
@@ -127,7 +127,7 @@ export default function AuditLog() {
             <p className="t-body">No activity found</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>

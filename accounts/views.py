@@ -1,8 +1,9 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework import filters
+from .audit import log_action
 from .models import User, AuditLog
 from .serializers import (
     UserSerializer, UserCreateSerializer,
@@ -37,17 +38,12 @@ class UserListCreateView(generics.ListCreateAPIView):
         return UserSerializer
 
     def get_permissions(self):
-        if self.request.method == 'POST':
-            # Only managers can create users (admin panel)
-            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         if self.request.user.role != 'manager':
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Only managers can create users.')
         user = serializer.save()
-        from .audit import log_action
         log_action(self.request, 'create', 'User', user.username,
                    f'Created {user.get_role_display()} account for {user.get_full_name() or user.username}')
 
@@ -59,18 +55,14 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         if self.request.user.role != 'manager':
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Only managers can edit other users.')
         serializer.save()
 
     def perform_destroy(self, instance):
         if self.request.user.role != 'manager':
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Only managers can delete users.')
         if instance.pk == self.request.user.pk:
-            from rest_framework.exceptions import ValidationError
             raise ValidationError('You cannot delete your own account.')
-        from .audit import log_action
         log_action(self.request, 'delete', 'User', instance.username,
                    f'Deleted user {instance.get_full_name() or instance.username}')
         instance.delete()
@@ -97,7 +89,6 @@ class PasswordChangeView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save()
-        from .audit import log_action
         log_action(request, 'update', 'User', request.user.username, 'Password changed')
         return Response({'detail': 'Password changed successfully.'})
 
@@ -110,7 +101,6 @@ class AuditLogListView(generics.ListAPIView):
 
     def get_queryset(self):
         if self.request.user.role != 'manager':
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied()
         qs = AuditLog.objects.select_related('user').all()
         user_id = self.request.query_params.get('user')

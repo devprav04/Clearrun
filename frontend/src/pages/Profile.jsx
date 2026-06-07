@@ -115,7 +115,7 @@ export default function Profile() {
       {/* Profile form */}
       <Section title="Personal Information" icon={User}>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-form">
             {[['first_name','First Name'],['last_name','Last Name']].map(([k,l]) => (
               <div key={k}>
                 <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{l}</label>
@@ -127,7 +127,7 @@ export default function Profile() {
             <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Email</label>
             <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input" placeholder="your@email.com" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-form">
             <div>
               <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Phone</label>
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="input" placeholder="+91 98765 43210" />

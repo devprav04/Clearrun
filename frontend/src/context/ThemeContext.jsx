@@ -2,8 +2,17 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext(null);
 
+const THEME_VERSION = 'v2';
+
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const [theme, setTheme] = useState(() => {
+    // Reset to light if user has a stale preference from before v2 (when dark was default)
+    if (localStorage.getItem('themeVersion') !== THEME_VERSION) {
+      localStorage.removeItem('theme');
+      localStorage.setItem('themeVersion', THEME_VERSION);
+    }
+    return localStorage.getItem('theme') || 'light';
+  });
 
   useEffect(() => {
     const root = document.documentElement;

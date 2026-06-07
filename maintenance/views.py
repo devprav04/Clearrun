@@ -1,9 +1,13 @@
+from datetime import date, timedelta
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.conf import settings as django_settings
+from django.core.mail import send_mail
 from django.utils import timezone
 from instruments.models import Instrument
+from settings_app.models import CompanySettings
 from .models import AMCContract, BreakdownTicket, MaintenanceLog, CalibrationRecord
 from .serializers import (
     AMCContractSerializer, BreakdownTicketSerializer,
@@ -54,40 +58,38 @@ class BreakdownTicketListCreateView(generics.ListCreateAPIView):
         instrument.save()
         log_action(self.request, 'ticket', 'Breakdown Ticket', instrument.name,
                    f'Reported breakdown — {ticket.get_priority_display()} priority: {ticket.description[:100]}')
-        # Send email to vendor AMC contact if available
+        self._notify_vendor(ticket, instrument)
+
+    def _notify_vendor(self, ticket, instrument):
+        amc = AMCContract.objects.filter(
+            instrument=instrument, status='active'
+        ).select_related('vendor').order_by('-end_date').first()
+        if not (amc and amc.vendor and amc.vendor.email):
+            return
+
         try:
-            from maintenance.models import AMCContract
-            from django.core.mail import send_mail
-            from django.conf import settings as django_settings
-            amc = AMCContract.objects.filter(instrument=instrument, status='active').order_by('-end_date').first()
-            if amc and amc.vendor and amc.vendor.email:
-                company_name = 'CleanRun Lab'
-                try:
-                    from settings_app.models import CompanySettings
-                    cs = CompanySettings.objects.first()
-                    if cs and cs.company_name:
-                        company_name = cs.company_name
-                except Exception:
-                    pass
-                subject = f'[Service Call] Breakdown — {instrument.name} | {company_name}'
-                body = (
-                    f'Dear {amc.vendor.contact_person or amc.vendor.name},\n\n'
-                    f'We are raising a service call for the following instrument:\n\n'
-                    f'  Instrument : {instrument.name}\n'
-                    f'  Model      : {instrument.model}\n'
-                    f'  Serial No  : {instrument.serial_number}\n'
-                    f'  Location   : {instrument.location}\n'
-                    f'  Priority   : {ticket.get_priority_display()}\n'
-                    f'  Description: {ticket.description}\n\n'
-                    f'Please arrange for a service engineer at the earliest.\n\n'
-                    f'Reported by: {self.request.user.get_full_name() or self.request.user.username}\n'
-                    f'Date: {ticket.reported_at.strftime("%d %b %Y, %H:%M")}\n\n'
-                    f'Regards,\n{company_name}'
-                )
-                send_mail(subject, body, django_settings.DEFAULT_FROM_EMAIL, [amc.vendor.email],
-                          fail_silently=True)
+            cs = CompanySettings.objects.first()
+            company_name = (cs and cs.company_name) or 'CleanRun Lab'
         except Exception:
-            pass
+            company_name = 'CleanRun Lab'
+
+        subject = f'[Service Call] Breakdown — {instrument.name} | {company_name}'
+        body = (
+            f'Dear {amc.vendor.contact_person or amc.vendor.name},\n\n'
+            f'We are raising a service call for the following instrument:\n\n'
+            f'  Instrument : {instrument.name}\n'
+            f'  Model      : {instrument.model}\n'
+            f'  Serial No  : {instrument.serial_number}\n'
+            f'  Location   : {instrument.location}\n'
+            f'  Priority   : {ticket.get_priority_display()}\n'
+            f'  Description: {ticket.description}\n\n'
+            f'Please arrange for a service engineer at the earliest.\n\n'
+            f'Reported by: {self.request.user.get_full_name() or self.request.user.username}\n'
+            f'Date: {ticket.reported_at.strftime("%d %b %Y, %H:%M")}\n\n'
+            f'Regards,\n{company_name}'
+        )
+        send_mail(subject, body, django_settings.DEFAULT_FROM_EMAIL, [amc.vendor.email],
+                  fail_silently=True)
 
 
 class BreakdownTicketDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -161,9 +163,7 @@ class CalibrationRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def expiring_amc_contracts(request):
-    from datetime import date, timedelta
     today = date.today()
     threshold = today + timedelta(days=30)
     contracts = AMCContract.objects.filter(end_date__lte=threshold, end_date__gte=today, status='active')
-    data = AMCContractSerializer(contracts, many=True).data
-    return Response(data)
+    return Response(AMCContractSerializer(contracts, many=True).data)

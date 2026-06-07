@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const isAuthenticated = Boolean(localStorage.getItem('access_token'));
+  const isAuthenticated = Boolean(user);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, isAuthenticated }}>

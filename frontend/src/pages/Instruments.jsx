@@ -83,7 +83,7 @@ function InstrumentModal({ instrument, vendors, onClose, onSuccess }) {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14, marginBottom: 14 }}>
+          <div className="grid-form" style={{ gap: 14, marginBottom: 14 }}>
             {[
               { key: 'name', label: 'Instrument Name *', placeholder: 'e.g. Gas Chromatograph', required: true },
               { key: 'model', label: 'Model *', placeholder: 'e.g. Agilent 7890A', required: true },
@@ -184,7 +184,7 @@ function InstrumentModal({ instrument, vendors, onClose, onSuccess }) {
                 <span className="t-small">{addCal ? '▲ Hide' : '▼ Expand'}</span>
               </button>
               {addCal && (
-                <div style={{ padding: 14, background: 'var(--bg-3)', display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+                <div className="grid-form" style={{ padding: 14, background: 'var(--bg-3)', gap: 12 }}>
                   {[
                     { key: 'calibration_date', label: 'Calibration Date *', type: 'date' },
                     { key: 'next_due_date', label: 'Next Due Date *', type: 'date' },
@@ -247,7 +247,7 @@ export default function Instruments() {
     ]).then(([instRes, vendorRes]) => {
       setInstruments(instRes.data?.results || instRes.data || []);
       setVendors(vendorRes.data?.results || vendorRes.data || []);
-    }).catch(console.error).finally(() => setLoading(false));
+    }).catch(() => {}).finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -321,8 +321,8 @@ export default function Instruments() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+      <div className="page-toolbar">
+        <div className="toolbar-search">
           <Search size={14} color="var(--tx-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
           <input type="text" placeholder="Search by name, serial, model, location…" value={search} onChange={e => setSearch(e.target.value)}
             className="input" style={{ paddingLeft: 32 }} />
@@ -341,7 +341,7 @@ export default function Instruments() {
         </div>
       ) : (
         <div className="surface" style={{ overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>

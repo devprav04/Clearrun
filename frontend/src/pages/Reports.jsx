@@ -179,7 +179,7 @@ export default function Reports() {
         {audit.length === 0 ? (
           <p className="t-body" style={{ textAlign: 'center', padding: '40px 0' }}>No audit data available</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>

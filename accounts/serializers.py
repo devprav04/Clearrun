@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User
+from .models import User, AuditLog
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -56,8 +56,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['user'] = UserSerializer(self.user, context={'request': self.context.get('request')}).data
         return data
 
-
-from .models import AuditLog
 
 class AuditLogSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()

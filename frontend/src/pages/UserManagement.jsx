@@ -113,14 +113,14 @@ function UserModal({ user, onClose, onSaved }) {
   };
 
   return (
-    <div className="overlay" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto' }}>
-      <div className="modal animate-slide-in" style={{ width: '100%', maxWidth: 480, padding: 24, marginBottom: 32 }}>
+    <div className="overlay" style={{ overflowY: 'auto', alignItems: 'flex-start', paddingTop: 32 }}>
+      <div className="modal animate-slide-in" style={{ maxWidth: 480, padding: 24, marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <span className="t-title">{isEdit ? 'Edit User' : 'Add New User'}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer', padding: 4 }}><X size={15} /></button>
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-form">
             {[['first_name','First Name'],['last_name','Last Name']].map(([k,l]) => (
               <div key={k}>
                 <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{l}</label>
@@ -145,7 +145,7 @@ function UserModal({ user, onClose, onSaved }) {
               <option value="manager">Manager / Admin</option>
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-form">
             <div>
               <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Phone</label>
               <input value={form.phone} onChange={set('phone')} className="input" placeholder="+91 …" />
@@ -231,7 +231,7 @@ export default function UserManagement() {
       </div>
 
       {/* Role summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div className="grid-3">
         {Object.entries(ROLE_META).map(([role, meta]) => {
           const count = users.filter(u => u.role === role).length;
           return (
@@ -252,7 +252,7 @@ export default function UserManagement() {
         ) : filtered.length === 0 ? (
           <p className="t-body" style={{ textAlign: 'center', padding: '48px 0' }}>No users found.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>

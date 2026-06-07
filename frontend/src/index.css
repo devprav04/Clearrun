@@ -199,5 +199,49 @@ select.input { cursor: pointer; }
 
 /* ─── Utility ─────────────────────────────────────────────── */
 .divider { height: 1px; background: var(--line); }
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); z-index: 100; }
-.modal   { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: var(--r-xl); box-shadow: 0 24px 64px rgba(0,0,0,.5); }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal   { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: var(--r-xl); box-shadow: 0 24px 64px rgba(0,0,0,.18); width: 100%; }
+html.light .overlay { background: rgba(0,0,0,.25); }
+html.light .modal   { box-shadow: 0 8px 40px rgba(0,0,0,.12); }
+
+/* ─── Responsive grid utilities ────────────────────────────── */
+.grid-4    { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.grid-3    { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.grid-2    { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+.grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ─── Page layout helpers ──────────────────────────────────── */
+.page-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.toolbar-search { position: relative; flex: 1; min-width: 200px; }
+.table-wrap { overflow-x: auto; }
+
+/* ─── Responsive breakpoints ───────────────────────────────── */
+@media (max-width: 767px) {
+  /* Grids collapse */
+  .grid-4    { grid-template-columns: repeat(2,1fr); }
+  .grid-3    { grid-template-columns: repeat(2,1fr); }
+  .grid-2    { grid-template-columns: 1fr; }
+  .grid-form { grid-template-columns: 1fr; }
+
+  /* Page content padding */
+  main { padding: 14px 14px 80px !important; }
+
+  /* Toolbar stacks vertically */
+  .page-toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar-search { min-width: 0; width: 100%; }
+
+  /* Modal slides up from bottom on mobile */
+  .overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal   {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: var(--r-xl) !important;
+    border-top-right-radius: var(--r-xl) !important;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  /* Tables scroll horizontally */
+  .table-wrap { border-radius: var(--r-lg); }
+  .data-table { min-width: 600px; }
+}

@@ -101,7 +101,7 @@ export default function Dashboard() {
         const { data: t } = await api.get('maintenance/tickets/');
         setTickets((t?.results || t || []).filter(x => x.assigned_to === user.id));
       }
-    } catch (e) { console.error(e); }
+    } catch (_) { /* errors surface via empty state */ }
     finally { setLoading(false); }
   };
 
@@ -114,7 +114,7 @@ export default function Dashboard() {
   /* ── Shimmer while loading ── */
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div className="grid-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="shimmer-box" style={{ height: 100, borderRadius: 'var(--r-lg)' }} />
         ))}

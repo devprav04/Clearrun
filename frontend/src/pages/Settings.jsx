@@ -100,7 +100,7 @@ function CompanyTab() {
       </Section>
 
       <Section title="Contact" icon={Phone}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid-form" style={{ gap: 14 }}>
           <Field label="Phone"><input value={form.phone} onChange={set('phone')} className="input" placeholder="+91 98765 43210" /></Field>
           <Field label="Email"><input type="email" value={form.email} onChange={set('email')} className="input" placeholder="lab@company.com" /></Field>
         </div>
@@ -164,7 +164,7 @@ function CodesTab() {
           Codes are auto-generated in the format <span className="t-mono" style={{ color: 'var(--tx-1)' }}>COMPANY/DEPT/SUBDEPT/TYPE/NUMBER</span>.<br />
           Set your organization's fixed segments below.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+        <div className="grid-3" style={{ marginBottom: 16 }}>
           {[
             { key: 'company_code',    label: 'Company Code',   placeholder: 'e.g. CPCL' },
             { key: 'department_code', label: 'Department Code', placeholder: 'e.g. MAN' },
@@ -341,7 +341,7 @@ function PDFTemplatesTab() {
 
             <div>
               <p className="t-label" style={{ marginBottom: 10 }}>Visibility Toggles</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+              <div className="grid-form" style={{ gap: 8 }}>
                 {[
                   { key: 'include_logo',       label: 'Include Logo'   },
                   { key: 'show_address',        label: 'Show Address'   },

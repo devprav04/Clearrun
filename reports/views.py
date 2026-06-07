@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db import models
@@ -134,7 +135,6 @@ def audit_readiness_report(request):
 @permission_classes([IsAuthenticated])
 def manager_dashboard(request):
     if not request.user.is_manager:
-        from rest_framework.exceptions import PermissionDenied
         raise PermissionDenied()
 
     amc_value = AMCContract.objects.filter(status='active').aggregate(

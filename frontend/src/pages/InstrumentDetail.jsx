@@ -36,7 +36,7 @@ export default function InstrumentDetail() {
   useEffect(() => {
     api.get(`instruments/${id}/`)
       .then((r) => setInstrument(r.data))
-      .catch(console.error)
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
 

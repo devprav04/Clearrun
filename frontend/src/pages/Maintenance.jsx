@@ -77,7 +77,7 @@ function TicketModal({ ticket, onClose, onSuccess }) {
             {instruments.map(i => <option key={i.id} value={i.id}>{i.name} ({i.serial_number})</option>)}
           </select>
         </FormField>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="grid-form">
           <FormField label="Priority">
             <select value={form.priority} onChange={set('priority')} className="input">
               {['low','medium','high','critical'].map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
@@ -148,7 +148,7 @@ function AmcModal({ contract, onClose, onSuccess }) {
     <ModalShell title={editing ? 'Edit AMC Contract' : 'New AMC Contract'} icon={FileText} onClose={onClose}>
       {error && <ErrBanner msg={error} />}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="grid-form">
           <FormField label="Instrument *">
             <select required value={form.instrument} onChange={set('instrument')} className="input">
               <option value="">Select instrument…</option>
@@ -232,7 +232,7 @@ function CalibrationModal({ record, onClose, onSuccess }) {
             {instruments.map(i => <option key={i.id} value={i.id}>{i.name} ({i.serial_number})</option>)}
           </select>
         </FormField>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="grid-form">
           <FormField label="Calibration Date *">
             <input type="date" required value={form.calibration_date} onChange={set('calibration_date')} className="input" />
           </FormField>
@@ -296,7 +296,7 @@ function CrudTable({ rows, columns, emptyIcon: Icon, emptyText, isAdmin, onEdit,
   );
   return (
     <div className="surface" style={{ overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
+      <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
@@ -347,7 +347,7 @@ export default function Maintenance() {
         amc: a.data?.results || a.data || [],
         calibration: c.data?.results || c.data || [],
       });
-    } catch (e) { console.error(e); }
+    } catch (_) { /* errors surface via empty state */ }
     finally { setLoading(false); }
   };
 

@@ -127,7 +127,7 @@ function PartModal({ part, onClose, onSuccess }) {
           </div>
         )}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-form">
             {[
               { key: 'name', label: 'Part Name *', placeholder: 'e.g. Detector Lamp', required: true },
               { key: 'part_number', label: 'Part Number *', placeholder: 'e.g. G7167-60120', required: true },
@@ -183,7 +183,7 @@ export default function Inventory() {
   const fetchParts = async () => {
     setLoading(true);
     try { const r = await api.get('inventory/parts/'); setParts(r.data?.results || r.data || []); }
-    catch (e) { console.error(e); }
+    catch (_) { /* errors surface via empty state */ }
     finally { setLoading(false); }
   };
 
@@ -206,7 +206,7 @@ export default function Inventory() {
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div className="grid-4">
         {[...Array(4)].map((_, i) => <div key={i} className="shimmer-box" style={{ height: 120, borderRadius: 'var(--r-lg)' }} />)}
       </div>
     </div>

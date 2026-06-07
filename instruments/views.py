@@ -1,4 +1,6 @@
+from datetime import date
 from rest_framework import generics, filters, permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
@@ -64,7 +66,6 @@ class InstrumentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class InstrumentNextCodeView(APIView):
-    """Return next available equipment code for a given instrument type abbreviation."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -76,7 +77,6 @@ class InstrumentNextCodeView(APIView):
         parts = [s.company_code, s.department_code, s.sub_dept_code, inst_type]
         prefix = '/'.join(p for p in parts if p)
 
-        # Count instruments whose manufacturer field starts with this prefix pattern
         existing = Instrument.objects.filter(manufacturer__regex=rf'^{re.escape(prefix)}/\d+$').count()
         next_num = existing + 1
         code = f'{prefix}/{next_num}'
@@ -93,6 +93,7 @@ INSTRUMENT_HEADERS = [
     'name', 'model', 'serial_number', 'manufacturer',
     'location', 'status', 'installation_date', 'notes',
 ]
+
 
 class InstrumentExportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -135,7 +136,6 @@ class InstrumentImportView(APIView):
 
     def post(self, request):
         if request.user.role not in ('manager', 'technician'):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Only managers and technicians can import instruments.')
 
         file = request.FILES.get('file')
@@ -176,10 +176,9 @@ class InstrumentImportView(APIView):
             raw_date = data.get('installation_date', '')
             if raw_date:
                 try:
-                    from datetime import date
                     parts = raw_date.split('-')
                     inst_data['installation_date'] = date(int(parts[0]), int(parts[1]), int(parts[2]))
-                except Exception:
+                except (ValueError, IndexError):
                     pass
 
             try:

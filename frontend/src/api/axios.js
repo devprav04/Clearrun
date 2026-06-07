@@ -1,11 +1,13 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api/',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: import.meta.env.VITE_API_URL || '/api/',
+  headers: {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  },
 });
 
-// Attach JWT token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
@@ -14,7 +16,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 — only redirect if user was logged in (not for public endpoints like settings)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
