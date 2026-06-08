@@ -114,8 +114,8 @@ function VendorModal({ vendor, onClose, onSuccess }) {
   const handleSubmit = async e => {
     e.preventDefault(); setLoading(true);
     try {
-      if (editing) { await api.patch(`instruments/vendors/${vendor.id}/`, form); toast('Vendor updated.', 'success'); }
-      else { await api.post('instruments/vendors/', form); toast('Vendor added.', 'success'); }
+      if (editing) { await api.patch(`vendors/${vendor.id}/`, form); toast('Vendor updated.', 'success'); }
+      else { await api.post('vendors/', form); toast('Vendor added.', 'success'); }
       onSuccess(); onClose();
     } catch (err) { toast(err.response?.data?.detail || 'Failed to save vendor.', 'error'); }
     finally { setLoading(false); }
@@ -362,7 +362,7 @@ export default function Vendors() {
 
   const fetchVendors = async () => {
     setLoading(true);
-    try { const r = await api.get('instruments/vendors/?page_size=200'); setVendors(r.data?.results || r.data || []); }
+    try { const r = await api.get('vendors/?page_size=200'); setVendors(r.data?.results || r.data || []); }
     catch { toast('Failed to load vendors.', 'error'); }
     finally { setLoading(false); }
   };
@@ -370,7 +370,7 @@ export default function Vendors() {
   useEffect(() => { fetchVendors(); }, []);
 
   const handleDelete = async () => {
-    try { await api.delete(`instruments/vendors/${deleteTarget.id}/`); toast('Vendor deleted.', 'success'); setDeleteTarget(null); fetchVendors(); }
+    try { await api.delete(`vendors/${deleteTarget.id}/`); toast('Vendor deleted.', 'success'); setDeleteTarget(null); fetchVendors(); }
     catch { toast('Delete failed.', 'error'); }
   };
 

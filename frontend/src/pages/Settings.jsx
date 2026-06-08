@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Settings2, Upload, Building2, Phone, MapPin, Palette, Save, X, Tag, List, FileText, Plus, Trash2 } from 'lucide-react';
+import { Settings2, Upload, Building2, Phone, MapPin, Palette, Save, X, Tag, List, FileText, Plus, Trash2, Type, Layout, Eye, ToggleLeft } from 'lucide-react';
 import api from '../api/axios';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../components/Toast';
@@ -290,6 +290,40 @@ const PDF_REPORT_TYPES = [
   { value: 'audit',         label: 'Audit Readiness Report' },
 ];
 
+const FONT_OPTIONS = [
+  { value: 'Helvetica', label: 'Helvetica (Default)' },
+  { value: 'Times',     label: 'Times New Roman' },
+  { value: 'Courier',   label: 'Courier (Monospace)' },
+];
+
+function ColorSwatch({ value, onChange, label }) {
+  const id = `cp-${label.replace(/\s/g,'_')}`;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', border: '2px solid var(--line-2)', background: value || 'var(--bg-3)', cursor: 'pointer' }}
+          onClick={() => document.getElementById(id).click()} />
+        <input id={id} type="color" value={value || '#1e3a5f'} onChange={e => onChange(e.target.value)}
+          style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+      </div>
+      <div>
+        <p style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--tx-1)' }}>{label}</p>
+        <p className="t-mono t-small">{value || 'default'}</p>
+      </div>
+    </div>
+  );
+}
+
+function CheckToggle({ checked, onChange, label }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 'var(--r-md)', cursor: 'pointer', userSelect: 'none' }}>
+      <input type="checkbox" checked={checked ?? false} onChange={e => onChange(e.target.checked)}
+        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--accent)' }} />
+      <span style={{ fontSize: '0.875rem', color: 'var(--tx-2)' }}>{label}</span>
+    </label>
+  );
+}
+
 function PDFTemplatesTab() {
   const toast = useToast();
   const [selected, setSelected] = useState('calibration');
@@ -299,10 +333,11 @@ function PDFTemplatesTab() {
 
   useEffect(() => {
     setLoading(true);
-    api.get(`settings/pdf-templates/${selected}/`).then(r => setTmpl(r.data)).finally(() => setLoading(false));
+    api.get(`settings/pdf-templates/${selected}/`).then(r => setTmpl(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, [selected]);
 
   const set = k => e => setTmpl(t => ({ ...t, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const setVal = (k, v) => setTmpl(t => ({ ...t, [k]: v }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -311,11 +346,18 @@ function PDFTemplatesTab() {
     finally { setSaving(false); }
   };
 
+  const headerBg  = tmpl?.primary_color  || '#1e3a5f';
+  const tableAlt  = tmpl?.accent_color   || '#f1f5f9';
+  const reportLabel = PDF_REPORT_TYPES.find(r => r.value === selected)?.label || '';
+
   return (
-    <div style={{ maxWidth: 580 }}>
-      <Section title="PDF Template Editor" icon={FileText}>
-        <p className="t-body" style={{ marginBottom: 14 }}>Customize the header, footer and display options for each PDF report type.</p>
-        <div style={{ marginBottom: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+
+      {/* ── Left: editor ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Report type selector */}
+        <div className="surface" style={{ padding: 16 }}>
           <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Report Type</label>
           <select value={selected} onChange={e => setSelected(e.target.value)} className="input">
             {PDF_REPORT_TYPES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -323,64 +365,204 @@ function PDFTemplatesTab() {
         </div>
 
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-            <span style={{ width: 18, height: 18, border: '2px solid var(--line-2)', borderTopColor: 'var(--tx-2)', borderRadius: '50%' }} className="animate-spin" />
+          <div className="surface" style={{ padding: 32, display: 'flex', justifyContent: 'center' }}>
+            <span style={{ width: 20, height: 20, border: '2px solid var(--line-2)', borderTopColor: 'var(--tx-2)', borderRadius: '50%' }} className="animate-spin" />
           </div>
-        ) : tmpl && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        ) : tmpl && (<>
+
+          {/* Content */}
+          <Section title="Header & Footer Text" icon={FileText}>
             {[
-              { key: 'title', label: 'Report Title (leave blank to use default)', placeholder: PDF_REPORT_TYPES.find(r=>r.value===selected)?.label },
-              { key: 'header_text', label: 'Header Sub-text', placeholder: 'e.g. Confidential — Internal Use Only' },
-              { key: 'footer_text', label: 'Footer Text (left side)', placeholder: 'Leave blank to use company address' },
+              { key: 'title',       label: 'Report Title',     placeholder: reportLabel },
+              { key: 'header_text', label: 'Header Sub-text',  placeholder: 'e.g. Confidential — Internal Use Only' },
+              { key: 'footer_text', label: 'Footer Text',      placeholder: 'Leave blank to use company address' },
             ].map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{label}</label>
+              <div key={key} style={{ marginBottom: 12 }}>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>{label}</label>
                 <input value={tmpl[key] || ''} onChange={set(key)} className="input" placeholder={placeholder} />
               </div>
             ))}
+          </Section>
 
-            <div>
-              <p className="t-label" style={{ marginBottom: 10 }}>Visibility Toggles</p>
-              <div className="grid-form" style={{ gap: 8 }}>
-                {[
-                  { key: 'include_logo',       label: 'Include Logo'   },
-                  { key: 'show_address',        label: 'Show Address'   },
-                  { key: 'show_page_number',    label: 'Page Number'    },
-                  { key: 'show_generated_date', label: 'Generated Date' },
-                ].map(({ key, label }) => (
-                  <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 'var(--r-md)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={tmpl[key] ?? true} onChange={set(key)} style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'var(--tx-1)' }} />
-                    <span style={{ fontSize: '0.875rem', color: 'var(--tx-2)' }}>{label}</span>
-                  </label>
-                ))}
+          {/* Colors */}
+          <Section title="Colors" icon={Palette}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <ColorSwatch label="Header / Footer Background"
+                value={tmpl.primary_color} onChange={v => setVal('primary_color', v)} />
+              <ColorSwatch label="Table Alternate Row Color"
+                value={tmpl.accent_color}  onChange={v => setVal('accent_color',  v)} />
+            </div>
+          </Section>
+
+          {/* Typography */}
+          <Section title="Typography" icon={Type}>
+            <div className="grid-form" style={{ gap: 12 }}>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Font Family</label>
+                <select value={tmpl.font_family || 'Helvetica'} onChange={set('font_family')} className="input">
+                  {FONT_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Body Font Size (pt)</label>
+                <input type="number" min={6} max={14} value={tmpl.body_font_size || 8} onChange={set('body_font_size')} className="input" />
               </div>
             </div>
+          </Section>
 
-            {/* Preview */}
-            <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
-              <div style={{ padding: '10px 14px', background: 'var(--tx-1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Page Layout */}
+          <Section title="Page Layout" icon={Layout}>
+            <div className="grid-form" style={{ gap: 12 }}>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Paper Size</label>
+                <select value={tmpl.paper_size || 'A4'} onChange={set('paper_size')} className="input">
+                  <option value="A4">A4</option>
+                  <option value="Letter">US Letter</option>
+                  <option value="A3">A3</option>
+                </select>
+              </div>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Orientation</label>
+                <select value={tmpl.orientation || 'portrait'} onChange={set('orientation')} className="input">
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+              </div>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Top Margin (mm)</label>
+                <input type="number" min={5} max={50} value={tmpl.margin_top || 20} onChange={set('margin_top')} className="input" />
+              </div>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Bottom Margin (mm)</label>
+                <input type="number" min={5} max={50} value={tmpl.margin_bottom || 20} onChange={set('margin_bottom')} className="input" />
+              </div>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Left Margin (mm)</label>
+                <input type="number" min={5} max={40} value={tmpl.margin_left || 15} onChange={set('margin_left')} className="input" />
+              </div>
+              <div>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Right Margin (mm)</label>
+                <input type="number" min={5} max={40} value={tmpl.margin_right || 15} onChange={set('margin_right')} className="input" />
+              </div>
+            </div>
+          </Section>
+
+          {/* Visibility */}
+          <Section title="Visibility" icon={Eye}>
+            <div className="grid-form" style={{ gap: 8 }}>
+              {[
+                { key: 'include_logo',            label: 'Include Logo'         },
+                { key: 'show_address',             label: 'Show Address'         },
+                { key: 'show_page_number',         label: 'Page Numbers'         },
+                { key: 'show_generated_date',      label: 'Generated Date'       },
+                { key: 'show_table_borders',       label: 'Table Borders'        },
+                { key: 'show_alt_row_color',       label: 'Alternating Row Color'},
+                { key: 'show_signature_block',     label: 'Signature Block'      },
+                { key: 'show_confidential_banner', label: 'Confidential Banner'  },
+                { key: 'show_watermark',           label: 'Watermark'            },
+              ].map(({ key, label }) => (
+                <CheckToggle key={key} checked={tmpl[key]} onChange={v => setVal(key, v)} label={label} />
+              ))}
+            </div>
+            {tmpl.show_watermark && (
+              <div style={{ marginTop: 10 }}>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Watermark Text</label>
+                <input value={tmpl.watermark_text || ''} onChange={set('watermark_text')} className="input" placeholder="DRAFT" />
+              </div>
+            )}
+            {tmpl.show_signature_block && (
+              <div style={{ marginTop: 10 }}>
+                <label className="t-label" style={{ display: 'block', marginBottom: 5 }}>Signature Label</label>
+                <input value={tmpl.signature_label || ''} onChange={set('signature_label')} className="input" placeholder="Authorised Signatory" />
+              </div>
+            )}
+          </Section>
+
+          <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
+            {saving ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'var(--accent-inv)', borderRadius: '50%' }} className="animate-spin" /> : <Save size={14} />}
+            Save Template
+          </button>
+        </>)}
+      </div>
+
+      {/* ── Right: live preview ── */}
+      {tmpl && (
+        <div style={{ position: 'sticky', top: 80 }}>
+          <div className="surface" style={{ padding: 16 }}>
+            <p className="t-label" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Eye size={12} color="var(--tx-3)" /> Live Preview
+            </p>
+
+            {/* Paper mockup */}
+            <div style={{ border: '1px solid var(--line-2)', borderRadius: 6, overflow: 'hidden', boxShadow: 'var(--shadow-md)', background: '#fff', fontFamily: tmpl.font_family || 'Helvetica, sans-serif' }}>
+
+              {/* Header */}
+              <div style={{ padding: '10px 14px', background: headerBg, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
-                  <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--bg)' }}>Company Name</p>
-                  <p style={{ fontSize: '0.7rem', color: 'color-mix(in srgb,var(--bg) 70%,transparent)', marginTop: 2 }}>{tmpl.title || PDF_REPORT_TYPES.find(r=>r.value===selected)?.label}</p>
+                  {tmpl.include_logo && (
+                    <div style={{ width: 28, height: 28, borderRadius: 4, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+                      <Building2 size={14} color="rgba(255,255,255,0.8)" />
+                    </div>
+                  )}
+                  <p style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#fff', margin: 0 }}>CPCL — Quality Control Lab</p>
+                  <p style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{tmpl.title || reportLabel}</p>
+                  {tmpl.header_text && <p style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', marginTop: 2, fontStyle: 'italic' }}>{tmpl.header_text}</p>}
                 </div>
-                {tmpl.show_generated_date && <p style={{ fontSize: '0.65rem', color: 'color-mix(in srgb,var(--bg) 60%,transparent)' }}>Generated: {new Date().toLocaleDateString('en-IN')}</p>}
+                {tmpl.show_generated_date && (
+                  <p style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+                    {new Date().toLocaleDateString('en-IN')}
+                  </p>
+                )}
               </div>
-              <div style={{ padding: '12px 14px', background: 'var(--bg-3)' }}>
-                {[1,.8,.6].map((w,i) => <div key={i} style={{ height: 6, background: 'var(--bg-4)', borderRadius: 3, width: `${w*100}%`, marginBottom: 6 }} />)}
+
+              {/* Table mockup */}
+              <div style={{ padding: '10px 14px', background: '#fff' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${Math.max(6, (tmpl.body_font_size || 8) - 1)}px` }}>
+                  <thead>
+                    <tr style={{ background: headerBg }}>
+                      {['Instrument', 'ID', 'Status', 'Due Date'].map(h => (
+                        <th key={h} style={{ padding: '4px 6px', color: '#fff', textAlign: 'left', fontWeight: 600,
+                          border: tmpl.show_table_borders ? '1px solid rgba(255,255,255,0.2)' : 'none' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[['pH Meter', 'QC-001', 'Active', 'Jun 30'], ['Viscometer', 'QC-002', 'Due', 'Jul 15'], ['Centrifuge', 'QC-003', 'Active', 'Aug 01']].map((row, i) => (
+                      <tr key={i} style={{ background: i % 2 === 1 && tmpl.show_alt_row_color ? tableAlt : '#fff' }}>
+                        {row.map((cell, j) => (
+                          <td key={j} style={{ padding: '3px 6px', color: '#333',
+                            border: tmpl.show_table_borders ? '1px solid #e5e7eb' : 'none' }}>{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={{ padding: '6px 14px', background: 'var(--tx-1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{ fontSize: '0.65rem', color: 'color-mix(in srgb,var(--bg) 60%,transparent)' }}>{tmpl.footer_text || (tmpl.show_address ? 'Company Address' : '')}</p>
-                {tmpl.show_page_number && <p style={{ fontSize: '0.65rem', color: 'color-mix(in srgb,var(--bg) 60%,transparent)' }}>Page 1</p>}
+
+              {/* Signature block */}
+              {tmpl.show_signature_block && (
+                <div style={{ padding: '6px 14px 10px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ textAlign: 'center', borderTop: '1px solid #ccc', paddingTop: 4, minWidth: 100 }}>
+                    <p style={{ fontSize: '0.55rem', color: '#666' }}>{tmpl.signature_label || 'Authorised Signatory'}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{ padding: '5px 14px', background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)' }}>
+                  {tmpl.footer_text || (tmpl.show_address ? 'Chennai Petroleum Corporation Limited, Chennai' : '')}
+                </p>
+                {tmpl.show_page_number && <p style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)' }}>Page 1 of 1</p>}
               </div>
             </div>
 
-            <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
-              {saving ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'var(--accent-inv)', borderRadius: '50%' }} className="animate-spin" /> : <Save size={14} />}
-              Save Template
-            </button>
+            <p className="t-small" style={{ marginTop: 10, textAlign: 'center' }}>
+              {tmpl.paper_size} · {tmpl.orientation} · {tmpl.body_font_size || 8}pt {tmpl.font_family || 'Helvetica'}
+            </p>
           </div>
-        )}
-      </Section>
+        </div>
+      )}
     </div>
   );
 }
