@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FlaskConical, MapPin, Tag, ChevronRight, Plus, Pencil, Trash2, X, Upload, Download, CalendarCheck, Wand2, RefreshCw } from 'lucide-react';
+import { Search, FlaskConical, MapPin, Tag, ChevronRight, Plus, Pencil, Trash2, X, Upload, Download, CalendarCheck, Wand2, RefreshCw, Hash, Building2, Settings2, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
@@ -8,6 +8,36 @@ import StatusBadge from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const STATUS_OPTIONS = ['operational', 'calibrating', 'broken_down', 'scheduled_maintenance', 'out_of_service'];
+const STATUS_META = {
+  operational:            { color: 'var(--green)',  label: 'Operational' },
+  calibrating:            { color: 'var(--blue)',   label: 'Calibrating' },
+  broken_down:            { color: 'var(--red)',    label: 'Broken Down' },
+  scheduled_maintenance:  { color: 'var(--orange)', label: 'Scheduled Maintenance' },
+  out_of_service:         { color: 'var(--tx-3)',   label: 'Out of Service' },
+};
+
+/* ── Labelled field wrapper ─────────────────────────────── */
+function F({ label, children, span2, hint }) {
+  return (
+    <div style={span2 ? { gridColumn: 'span 2' } : {}}>
+      <label style={{ display: 'block', marginBottom: 5, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tx-3)' }}>
+        {label}
+      </label>
+      {children}
+      {hint && <p style={{ marginTop: 4, fontSize: '0.6875rem', color: 'var(--tx-3)' }}>{hint}</p>}
+    </div>
+  );
+}
+
+/* ── Section divider ────────────────────────────────────── */
+function Divider({ icon: Icon, label }) {
+  return (
+    <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 2px', borderTop: '1px solid var(--line)', marginTop: 4 }}>
+      <Icon size={12} color="var(--accent)" />
+      <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent)' }}>{label}</span>
+    </div>
+  );
+}
 
 function InstrumentModal({ instrument, vendors, onClose, onSuccess }) {
   const editing = Boolean(instrument);
@@ -61,159 +91,163 @@ function InstrumentModal({ instrument, vendors, onClose, onSuccess }) {
       onSuccess(); onClose();
     } catch (err) {
       const data = err.response?.data;
-      setError(data ? JSON.stringify(data) : 'Failed to save instrument.');
+      setError(data ? (typeof data === 'object' ? Object.values(data).flat().join(' ') : String(data)) : 'Failed to save instrument.');
     } finally { setLoading(false); }
   };
 
+  const statusMeta = STATUS_META[form.status] || {};
+
   return (
-    <div className="overlay" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto' }}>
-      <div className="modal animate-slide-in" style={{ width: '100%', maxWidth: 640, padding: 24, marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <FlaskConical size={17} color="var(--blue)" />
-            <span className="t-title">{editing ? 'Edit Instrument' : 'Add Instrument'}</span>
+    <div className="overlay" style={{ alignItems: 'flex-start', padding: '28px 16px', overflowY: 'auto' }}>
+      <div className="modal animate-slide-in" style={{ width: '100%', maxWidth: 660, padding: 0, marginBottom: 32 }}>
+
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: '1px solid var(--line)', background: 'var(--bg-2)', borderRadius: 'var(--r-xl) var(--r-xl) 0 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'color-mix(in srgb,var(--accent) 12%,transparent)', border: '1px solid color-mix(in srgb,var(--accent) 25%,transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FlaskConical size={17} color="var(--accent)" />
+            </div>
+            <div>
+              <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2 }}>{editing ? 'Edit Instrument' : 'Add Instrument'}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--tx-3)', marginTop: 1 }}>{editing ? `Editing: ${instrument.name}` : 'Fill in the details below to register a new instrument'}</p>
+            </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer', padding: 4 }}><X size={16} /></button>
+          <button onClick={onClose} style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', cursor: 'pointer', color: 'var(--tx-3)' }}><X size={14} /></button>
         </div>
 
-        {error && (
-          <div style={{ padding: '10px 12px', background: 'color-mix(in srgb,var(--red) 8%,transparent)', border: '1px solid color-mix(in srgb,var(--red) 25%,transparent)', borderRadius: 'var(--r-md)', marginBottom: 16 }}>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--red)' }}>{error}</p>
-          </div>
-        )}
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid-form" style={{ gap: 14, marginBottom: 14 }}>
-            {[
-              { key: 'name', label: 'Instrument Name *', placeholder: 'e.g. Gas Chromatograph', required: true },
-              { key: 'model', label: 'Model *', placeholder: 'e.g. Agilent 7890A', required: true },
-              { key: 'serial_number', label: 'Serial Number *', placeholder: 'Unique serial number', required: true },
-              { key: 'location', label: 'Location / Room *', placeholder: 'e.g. Lab Room A', required: true },
-            ].map(({ key, label, placeholder, required }) => (
-              <div key={key}>
-                <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{label}</label>
-                <input required={required} placeholder={placeholder} value={form[key]} onChange={set(key)} className="input" />
-              </div>
-            ))}
+          {/* Error banner */}
+          {error && (
+            <div style={{ padding: '10px 14px', background: 'color-mix(in srgb,var(--red) 8%,transparent)', border: '1px solid color-mix(in srgb,var(--red) 25%,transparent)', borderRadius: 'var(--r-md)', marginBottom: 16 }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--red)' }}>{error}</p>
+            </div>
+          )}
 
-            {/* Instrument Type + Auto Code (new instruments only) */}
+          <div className="grid-form" style={{ gap: 14 }}>
+            {/* ── Basic Info ── */}
+            <Divider icon={FlaskConical} label="Basic Information" />
+
+            <F label="Instrument Name *">
+              <input required placeholder="e.g. Gas Chromatograph" value={form.name} onChange={set('name')} className="input" />
+            </F>
+            <F label="Model *">
+              <input required placeholder="e.g. Agilent 7890A" value={form.model} onChange={set('model')} className="input" />
+            </F>
+            <F label="Serial Number *">
+              <input required placeholder="Unique serial number" value={form.serial_number} onChange={set('serial_number')} className="input t-mono" />
+            </F>
+            <F label="Location / Room *">
+              <input required placeholder="e.g. Lab Room A" value={form.location} onChange={set('location')} className="input" />
+            </F>
+
+            {/* ── Identification ── */}
+            <Divider icon={Hash} label="Identification & Coding" />
+
             {!editing && (
-              <div>
-                <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>
-                  Instrument Type Abbreviation
-                  <span className="t-small" style={{ marginLeft: 6, color: 'var(--tx-3)' }}>e.g. UVF, GC, HPLC</span>
-                </label>
-                <input
-                  value={instType}
-                  onChange={e => setInstType(e.target.value.toUpperCase())}
-                  className="input t-mono"
-                  placeholder="UVF"
-                  maxLength={10}
-                />
-              </div>
+              <F label="Instrument Type Abbreviation" hint="2–6 letter abbreviation used to auto-generate the equipment code">
+                <input value={instType} onChange={e => setInstType(e.target.value.toUpperCase())} className="input t-mono" placeholder="e.g. UVF, GC, HPLC" maxLength={10} />
+              </F>
             )}
 
-            {/* Equipment Code */}
-            <div>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Equipment Code / Tag</label>
+            <F label="Equipment Code / Tag" span2={editing}>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
-                  placeholder={!editing && instType ? 'Auto-generated' : 'e.g. CPCL/MAN/QC/UVF/1'}
+                  placeholder={!editing && instType ? 'Will auto-generate after typing type above' : 'e.g. CPCL/MAN/QC/UVF/1'}
                   value={form.manufacturer}
                   onChange={set('manufacturer')}
                   className="input t-mono"
                   style={{ flex: 1 }}
                 />
                 {!editing && codePreview && (
-                  <button
-                    type="button"
-                    onClick={applyGeneratedCode}
-                    className="btn btn-ghost btn-sm"
-                    title={`Use generated code: ${codePreview}`}
-                    style={{ flexShrink: 0, padding: '0 10px' }}
-                  >
+                  <button type="button" onClick={applyGeneratedCode} className="btn btn-ghost btn-sm" title={`Apply: ${codePreview}`} style={{ flexShrink: 0, padding: '0 12px', gap: 5 }}>
                     {codeLoading ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    Apply
                   </button>
                 )}
               </div>
               {!editing && codePreview && (
-                <p className="t-small" style={{ marginTop: 5 }}>
-                  Generated:&nbsp;
-                  <button type="button" onClick={applyGeneratedCode} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--blue)', fontFamily: 'var(--font-mono)', fontSize: 'inherit', textDecoration: 'underline' }}>
-                    {codePreview}
+                <div style={{ marginTop: 6, padding: '6px 10px', background: 'color-mix(in srgb,var(--accent) 6%,transparent)', border: '1px solid color-mix(in srgb,var(--accent) 18%,transparent)', borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--tx-2)' }}>Suggested code:</span>
+                  <button type="button" onClick={applyGeneratedCode} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700 }}>
+                    {codeLoading ? '…' : codePreview}
                   </button>
-                  &nbsp;— click to apply
-                </p>
+                </div>
               )}
-            </div>
+            </F>
 
-            <div>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Installation Date</label>
+            {/* ── Status & Assignment ── */}
+            <Divider icon={Settings2} label="Status & Assignment" />
+
+            <F label="Installation Date">
               <input type="date" value={form.installation_date} onChange={set('installation_date')} className="input" />
-            </div>
-            <div>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Status</label>
-              <select value={form.status} onChange={set('status')} className="input">
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Vendor / Supplier</label>
+            </F>
+            <F label="Status">
+              <div style={{ position: 'relative' }}>
+                <select value={form.status} onChange={set('status')} className="input" style={{ paddingLeft: 34 }}>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>)}
+                </select>
+                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: statusMeta.color, pointerEvents: 'none', flexShrink: 0 }} />
+              </div>
+            </F>
+            <F label="Vendor / Supplier" span2>
               <select value={form.vendor} onChange={set('vendor')} className="input">
                 <option value="">— No Vendor —</option>
                 {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
-            </div>
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Notes</label>
-            <textarea rows={2} value={form.notes} onChange={set('notes')} className="input" placeholder="Optional notes…" />
+            </F>
+
+            {/* ── Notes ── */}
+            <Divider icon={StickyNote} label="Notes" />
+            <F label="Internal Notes" span2>
+              <textarea rows={3} value={form.notes} onChange={set('notes')} className="input" style={{ resize: 'vertical' }} placeholder="Observations, special requirements, history…" />
+            </F>
           </div>
 
+          {/* ── Calibration accordion ── */}
           {!editing && (
-            <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden', marginTop: 18 }}>
               <button type="button" onClick={() => setAddCal(v => !v)} style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px', background: 'var(--bg-3)', border: 'none', cursor: 'pointer',
-                color: 'var(--tx-2)', fontSize: '0.875rem', fontWeight: 500, fontFamily: 'inherit',
+                padding: '12px 16px', background: addCal ? 'color-mix(in srgb,var(--blue) 6%,transparent)' : 'var(--bg-3)',
+                border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'background .15s',
               }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CalendarCheck size={14} color="var(--blue)" />
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', fontWeight: 600, color: addCal ? 'var(--blue)' : 'var(--tx-2)' }}>
+                  <CalendarCheck size={14} color={addCal ? 'var(--blue)' : 'var(--tx-3)'} />
                   Add Initial Calibration Record
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 400, color: 'var(--tx-3)', fontStyle: 'italic' }}>optional</span>
                 </span>
-                <span className="t-small">{addCal ? '▲ Hide' : '▼ Expand'}</span>
+                {addCal ? <ChevronUp size={14} color="var(--blue)" /> : <ChevronDown size={14} color="var(--tx-3)" />}
               </button>
               {addCal && (
-                <div className="grid-form" style={{ padding: 14, background: 'var(--bg-3)', gap: 12 }}>
-                  {[
-                    { key: 'calibration_date', label: 'Calibration Date *', type: 'date' },
-                    { key: 'next_due_date', label: 'Next Due Date *', type: 'date' },
-                  ].map(({ key, label, type }) => (
-                    <div key={key}>
-                      <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{label}</label>
-                      <input type={type} value={calForm[key]} onChange={setCal(key)} className="input" />
-                    </div>
-                  ))}
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Calibrated By Vendor</label>
+                <div className="grid-form" style={{ padding: '16px', background: 'color-mix(in srgb,var(--blue) 3%,var(--bg-3))', borderTop: '1px solid var(--line)', gap: 12 }}>
+                  <F label="Calibration Date *">
+                    <input type="date" value={calForm.calibration_date} onChange={setCal('calibration_date')} className="input" />
+                  </F>
+                  <F label="Next Due Date *">
+                    <input type="date" value={calForm.next_due_date} onChange={setCal('next_due_date')} className="input" />
+                  </F>
+                  <F label="Calibrated By Vendor" span2>
                     <select value={calForm.calibrated_by_vendor} onChange={setCal('calibrated_by_vendor')} className="input">
                       <option value="">— Internal / Not specified —</option>
                       {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Calibration Notes</label>
-                    <input value={calForm.notes} onChange={setCal('notes')} className="input" placeholder="Certificate no., observations…" />
-                  </div>
+                  </F>
+                  <F label="Calibration Notes" span2>
+                    <input value={calForm.notes} onChange={setCal('notes')} className="input" placeholder="Certificate number, lab, observations…" />
+                  </F>
                 </div>
               )}
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* ── Actions ── */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
             <button type="button" onClick={onClose} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
-            <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1 }}>
-              {loading && <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'var(--accent-inv)', borderRadius: '50%' }} className="animate-spin" />}
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 2 }}>
+              {loading
+                ? <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%' }} className="animate-spin" />
+                : <FlaskConical size={13} />}
               {editing ? 'Save Changes' : 'Add Instrument'}
             </button>
           </div>
