@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CleanRun IMMS — Start backend + Cloudflare Tunnel
+# CleanRun IMMS — Start FastAPI backend + Cloudflare Tunnel
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,13 +9,11 @@ if [ -d "$SCRIPT_DIR/venv" ]; then
   source "$SCRIPT_DIR/venv/bin/activate"
 fi
 
-echo "==> Applying migrations..."
-python manage.py migrate --noinput
-
-echo "==> Starting Gunicorn on http://0.0.0.0:8000 ..."
-gunicorn cleanrun.wsgi:application \
+echo "==> Starting Gunicorn (FastAPI) on http://0.0.0.0:8000 ..."
+gunicorn app.main:app \
   --bind "0.0.0.0:8000" \
   --workers 3 \
+  --worker-class uvicorn.workers.UvicornWorker \
   --timeout 120 \
   --access-logfile logs/access.log \
   --error-logfile logs/error.log \
