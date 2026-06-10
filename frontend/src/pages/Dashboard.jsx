@@ -18,18 +18,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const STAT_CARDS = [
-  { key: 'operational',           label: 'Operational',  icon: CircleCheck,   iconBg: '#f0fdf4', iconColor: '#16a34a' },
-  { key: 'calibrating',           label: 'Calibrating',  icon: Activity,      iconBg: '#fefce8', iconColor: '#ca8a04' },
-  { key: 'broken_down',           label: 'Broken Down',  icon: CircleX,       iconBg: '#fef2f2', iconColor: '#dc2626' },
-  { key: 'scheduled_maintenance', label: 'Scheduled',    icon: CalendarClock, iconBg: '#eff6ff', iconColor: '#2563eb' },
+  { key: 'operational',           label: 'Operational',  icon: CircleCheck,   iconColor: 'var(--green)',  cardCls: 'stat-card-green'  },
+  { key: 'calibrating',           label: 'Calibrating',  icon: Activity,      iconColor: 'var(--yellow)', cardCls: 'stat-card-yellow' },
+  { key: 'broken_down',           label: 'Broken Down',  icon: CircleX,       iconColor: 'var(--red)',    cardCls: 'stat-card-red'    },
+  { key: 'scheduled_maintenance', label: 'Scheduled',    icon: CalendarClock, iconColor: 'var(--blue)',   cardCls: 'stat-card-blue'   },
 ];
-
-const DARK_ICON_BG = {
-  operational:           'color-mix(in srgb,#22c55e 12%,transparent)',
-  calibrating:           'color-mix(in srgb,#eab308 12%,transparent)',
-  broken_down:           'color-mix(in srgb,#ef4444 12%,transparent)',
-  scheduled_maintenance: 'color-mix(in srgb,#3b82f6 12%,transparent)',
-};
 
 const bdSchema = z.object({
   instrument:  z.string().min(1, 'Select an instrument'),
@@ -118,7 +111,6 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const [showBD, setShowBD] = useState(false);
   const [showTP, setShowTP] = useState(false);
-  const isDarkMode = !document.documentElement.classList.contains('light');
 
   const { data: dash, isLoading: dashLoading } = useDashboard();
   const { data: mgr } = useManagerReport();
@@ -164,20 +156,19 @@ export default function Dashboard() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
-        {STAT_CARDS.map(({ key, label, icon: Icon, iconBg, iconColor }) => {
-          const bg = isDarkMode ? DARK_ICON_BG[key] : iconBg;
-          return (
-            <div key={key} className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="stat-card-icon" style={{ background: bg }}>
-                  <Icon size={20} color={iconColor} strokeWidth={2} />
-                </div>
+        {STAT_CARDS.map(({ key, label, icon: Icon, iconColor, cardCls }) => (
+          <div key={key} className={`stat-card ${cardCls}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="stat-card-icon" style={{
+                background: `color-mix(in srgb, ${iconColor} 12%, transparent)`,
+              }}>
+                <Icon size={20} color={iconColor} strokeWidth={2} />
               </div>
-              <div className="stat-card-value">{counts[key] ?? 0}</div>
-              <div className="stat-card-label">{label}</div>
             </div>
-          );
-        })}
+            <div className="stat-card-value">{counts[key] ?? 0}</div>
+            <div className="stat-card-label">{label}</div>
+          </div>
+        ))}
       </div>
 
       {dash?.low_stock_parts?.length > 0 && (
@@ -215,11 +206,11 @@ export default function Dashboard() {
       {isManager && mgr && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
           {[
-            { icon: Banknote,    label: 'AMC Value',        value: `₹${Number(mgr.active_amc_value || 0).toLocaleString('en-IN')}`, color: 'var(--green)'  },
-            { icon: Clock,       label: 'Pending Renewals', value: mgr.amc_pending_renewals ?? '—',                                  color: 'var(--orange)' },
-            { icon: ShieldCheck, label: 'Compliance',       value: `${mgr.compliance_percentage ?? '—'}%`,                           color: 'var(--blue)'   },
-          ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="stat-card">
+            { icon: Banknote,    label: 'AMC Value',        value: `₹${Number(mgr.active_amc_value || 0).toLocaleString('en-IN')}`, color: 'var(--green)',  cardCls: 'stat-card-green'  },
+            { icon: Clock,       label: 'Pending Renewals', value: mgr.amc_pending_renewals ?? '—',                                  color: 'var(--orange)', cardCls: 'stat-card-orange' },
+            { icon: ShieldCheck, label: 'Compliance',       value: `${mgr.compliance_percentage ?? '—'}%`,                           color: 'var(--blue)',   cardCls: 'stat-card-blue'   },
+          ].map(({ icon: Icon, label, value, color, cardCls }) => (
+            <div key={label} className={`stat-card ${cardCls}`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="stat-card-label">{label}</span>
                 <Icon size={16} color={color} strokeWidth={1.8} />

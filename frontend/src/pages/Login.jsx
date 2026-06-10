@@ -37,8 +37,31 @@ export default function Login() {
     catch (err) { setServerError(err.response?.data?.detail || 'Invalid credentials.'); }
   };
 
+  const inputCls = 'bg-[var(--bg-3)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] focus-visible:ring-[var(--brand)] h-10';
+
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{
+      minHeight: '100vh',
+      background: 'var(--bg)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 16,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Background glow orbs */}
+      <div style={{
+        position: 'absolute', top: '10%', left: '20%',
+        width: 400, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(circle, color-mix(in srgb, var(--brand) 8%, transparent) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '10%', right: '15%',
+        width: 320, height: 320, borderRadius: '50%',
+        background: 'radial-gradient(circle, color-mix(in srgb, var(--purple) 6%, transparent) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
       <Button
         variant="outline" size="icon"
         onClick={toggle}
@@ -48,26 +71,63 @@ export default function Login() {
         {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
       </Button>
 
-      <div style={{ width: '100%', maxWidth: 380 }} className="page-enter">
+      <div style={{ width: '100%', maxWidth: 380, position: 'relative' }} className="page-enter">
+        {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', boxShadow: '0 2px 8px color-mix(in srgb,#4f46e5 40%,transparent)' }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 'var(--r-lg)',
+            background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-hover) 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, overflow: 'hidden',
+            boxShadow: '0 4px 16px var(--brand-glow)',
+          }}>
             {settings?.logo_url
               ? <img src={settings.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-              : <FlaskConical size={17} color="#fff" strokeWidth={2} />}
+              : <FlaskConical size={18} color="#fff" strokeWidth={2.2} />}
           </div>
           <div>
-            <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2 }}>{settings?.company_name || 'CleanRun'}</p>
-            <p style={{ fontSize: '0.72rem', color: 'var(--tx-3)', marginTop: 1 }}>{settings?.tagline || 'Instrument Management System'}</p>
+            <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+              {settings?.company_name || 'CleanRun'}
+            </p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--tx-3)', marginTop: 2, letterSpacing: '0.02em' }}>
+              {settings?.tagline || 'Instrument Management System'}
+            </p>
           </div>
         </div>
 
-        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-xl)', padding: 28 }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--tx-1)', marginBottom: 4 }}>Sign in</h2>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--tx-3)', marginBottom: 24 }}>Enter your credentials to continue</p>
+        {/* Card */}
+        <div style={{
+          background: 'var(--bg-2)',
+          border: '1px solid var(--line)',
+          borderRadius: 'var(--r-xl)',
+          padding: '28px 28px 24px',
+          boxShadow: 'var(--shadow-lg)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {/* top accent line */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+            background: 'linear-gradient(90deg, var(--brand) 0%, var(--purple) 100%)',
+          }} />
+
+          <h2 style={{
+            fontSize: '1.25rem', fontWeight: 700,
+            letterSpacing: '-0.025em', color: 'var(--tx-1)',
+            marginBottom: 4, marginTop: 4,
+          }}>
+            Welcome back
+          </h2>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--tx-3)', marginBottom: 24 }}>
+            Sign in to your account to continue
+          </p>
 
           {serverError && (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-md mb-5" style={{ background: 'color-mix(in srgb,var(--red) 8%,transparent)', border: '1px solid color-mix(in srgb,var(--red) 25%,transparent)' }}>
-              <AlertCircle size={14} color="var(--red)" className="flex-shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg mb-5" style={{
+              background: 'color-mix(in srgb,var(--red) 8%,transparent)',
+              border: '1px solid color-mix(in srgb,var(--red) 25%,transparent)',
+            }}>
+              <AlertCircle size={14} style={{ color: 'var(--red)', flexShrink: 0 }} />
               <span style={{ fontSize: '0.8125rem', color: 'var(--red)' }}>{serverError}</span>
             </div>
           )}
@@ -77,9 +137,9 @@ export default function Login() {
               <Label className="t-label">Username</Label>
               <Input
                 {...register('username')}
-                placeholder="Enter username"
+                placeholder="Enter your username"
                 autoFocus
-                className="bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] focus-visible:ring-[var(--brand)]"
+                className={inputCls}
               />
               {errors.username && <p className="text-xs text-destructive">{errors.username.message}</p>}
             </div>
@@ -90,8 +150,8 @@ export default function Login() {
                 <Input
                   {...register('password')}
                   type={showPw ? 'text' : 'password'}
-                  placeholder="Enter password"
-                  className="bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] focus-visible:ring-[var(--brand)] pr-10"
+                  placeholder="Enter your password"
+                  className={`${inputCls} pr-10`}
                 />
                 <button type="button" onClick={() => setShowPw(s => !s)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--tx-3)] hover:text-[var(--tx-1)] transition-colors">
@@ -101,7 +161,16 @@ export default function Login() {
               {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
             </div>
 
-            <Button type="submit" disabled={isSubmitting} className="w-full mt-1 h-10 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full mt-1 h-10"
+              style={{
+                background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-hover) 100%)',
+                boxShadow: isSubmitting ? 'none' : '0 2px 12px var(--brand-glow)',
+                border: 'none',
+              }}
+            >
               {isSubmitting && <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
               {isSubmitting ? 'Signing in…' : 'Sign In'}
             </Button>

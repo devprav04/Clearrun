@@ -27,19 +27,21 @@ function Item({ to, icon: Icon, label, collapsed }) {
   return (
     <NavLink to={to} end={to === '/'} title={collapsed ? label : undefined}>
       {({ isActive }) => (
-        <span className={`nav-item${isActive ? ' active' : ''}`}
-          style={{ position: 'relative', justifyContent: collapsed ? 'center' : undefined }}>
+        <span
+          className={`nav-item${isActive ? ' active' : ''}`}
+          style={{ justifyContent: collapsed ? 'center' : undefined, position: 'relative' }}
+        >
           <Icon size={15} strokeWidth={isActive ? 2.2 : 1.8} style={{ flexShrink: 0 }} />
-          {!collapsed && label}
+          {!collapsed && <span style={{ flex: 1 }}>{label}</span>}
           {collapsed && (
             <span style={{
-              position: 'absolute', left: '100%', marginLeft: 10,
+              position: 'absolute', left: 'calc(100% + 10px)',
               background: 'var(--bg-3)', border: '1px solid var(--line-2)',
               color: 'var(--tx-1)', fontSize: '0.75rem', fontWeight: 500,
               padding: '5px 10px', borderRadius: 'var(--r-md)',
               whiteSpace: 'nowrap', pointerEvents: 'none',
               opacity: 0, transition: 'opacity .1s',
-              boxShadow: '0 4px 12px rgba(0,0,0,.25)',
+              boxShadow: '0 4px 12px rgba(0,0,0,.35)',
               zIndex: 200,
             }} className="nav-tooltip">
               {label}
@@ -64,12 +66,14 @@ export default function Sidebar() {
 
   return (
     <>
-      <style>{`.nav-item:hover .nav-tooltip { opacity: 1 !important; }`}</style>
+      <style>{`
+        .nav-item:hover .nav-tooltip { opacity: 1 !important; }
+      `}</style>
 
       <aside style={{
-        width: collapsed ? 52 : 212,
+        width: collapsed ? 52 : 216,
         minHeight: '100vh', flexShrink: 0,
-        background: 'var(--bg)',
+        background: 'var(--sidebar)',
         borderRight: '1px solid var(--line)',
         display: 'flex', flexDirection: 'column',
         transition: 'width .2s cubic-bezier(.4,0,.2,1)',
@@ -79,25 +83,33 @@ export default function Sidebar() {
         {/* Brand */}
         <div style={{
           height: 56, display: 'flex', alignItems: 'center',
-          padding: '0 14px', gap: 10,
+          padding: collapsed ? '0 12px' : '0 14px', gap: 10,
           borderBottom: '1px solid var(--line)', overflow: 'hidden',
         }}>
           <div style={{
             width: 28, height: 28, borderRadius: 'var(--r-md)',
-            background: 'var(--brand)',
+            background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-hover) 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, boxShadow: '0 2px 8px color-mix(in srgb,var(--brand) 40%,transparent)',
+            flexShrink: 0,
+            boxShadow: '0 2px 10px var(--brand-glow)',
           }}>
             {settings?.logo_url
               ? <img src={settings.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} alt="" />
               : <FlaskConical size={14} color="#fff" strokeWidth={2.2} />}
           </div>
           {!collapsed && (
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <p style={{
+                fontSize: '0.875rem', fontWeight: 700, color: 'var(--tx-1)',
+                lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                letterSpacing: '-0.01em',
+              }}>
                 {settings?.company_name || 'CleanRun'}
               </p>
-              <p style={{ fontSize: '0.625rem', color: 'var(--tx-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
+              <p style={{
+                fontSize: '0.625rem', color: 'var(--tx-3)',
+                letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2,
+              }}>
                 IMMS
               </p>
             </div>
@@ -105,14 +117,26 @@ export default function Sidebar() {
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', overflowX: 'visible' }}>
-          {!collapsed && <p className="t-label" style={{ padding: '6px 6px 4px' }}>Overview</p>}
+        <nav style={{
+          flex: 1, padding: '10px 6px',
+          display: 'flex', flexDirection: 'column', gap: 1,
+          overflowY: 'auto', overflowX: 'visible',
+        }}>
+          {!collapsed && (
+            <p className="t-label" style={{ padding: '4px 8px 6px', letterSpacing: '0.1em' }}>
+              Overview
+            </p>
+          )}
           {CORE.map(i => <Item key={i.to} {...i} collapsed={collapsed} />)}
 
           {isAdmin && (
             <>
               <div className="divider" style={{ margin: '8px 4px' }} />
-              {!collapsed && <p className="t-label" style={{ padding: '4px 6px' }}>Admin</p>}
+              {!collapsed && (
+                <p className="t-label" style={{ padding: '4px 8px 6px', letterSpacing: '0.1em' }}>
+                  Admin
+                </p>
+              )}
               {ADMIN.map(i => <Item key={i.to} {...i} collapsed={collapsed} />)}
             </>
           )}
@@ -122,27 +146,44 @@ export default function Sidebar() {
         <div style={{
           height: 44, borderTop: '1px solid var(--line)',
           display: 'flex', alignItems: 'center',
-          padding: collapsed ? '0 18px' : '0 14px', gap: 8,
+          padding: collapsed ? '0 19px' : '0 14px', gap: 8,
         }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px var(--green)', flexShrink: 0 }} />
-          {!collapsed && <span style={{ fontSize: '0.6875rem', color: 'var(--tx-3)' }}>Online · v2.0</span>}
+          <span style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: 'var(--green)',
+            boxShadow: '0 0 6px var(--green)',
+            flexShrink: 0,
+          }} />
+          {!collapsed && (
+            <span style={{ fontSize: '0.6875rem', color: 'var(--tx-3)', letterSpacing: '0.02em' }}>
+              Online · v2.0
+            </span>
+          )}
         </div>
 
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(c => !c)}
-          title={collapsed ? 'Expand' : 'Collapse'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
             position: 'absolute', right: -13, top: 72,
             width: 26, height: 26, borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--bg-2)', border: '1px solid var(--line-2)',
             color: 'var(--tx-3)', cursor: 'pointer', zIndex: 10,
-            transition: 'color .12s, border-color .12s',
-            boxShadow: 'var(--shadow-sm)',
+            transition: 'color .12s, border-color .12s, background .12s',
+            boxShadow: 'var(--shadow-md)',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--tx-1)'; e.currentTarget.style.borderColor = 'var(--tx-3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--tx-3)'; e.currentTarget.style.borderColor = 'var(--line-2)'; }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = 'var(--tx-1)';
+            e.currentTarget.style.borderColor = 'var(--brand)';
+            e.currentTarget.style.background = 'var(--bg-3)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = 'var(--tx-3)';
+            e.currentTarget.style.borderColor = 'var(--line-2)';
+            e.currentTarget.style.background = 'var(--bg-2)';
+          }}
         >
           {collapsed ? <PanelLeftOpen size={12} /> : <PanelLeftClose size={12} />}
         </button>

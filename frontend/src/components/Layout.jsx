@@ -69,14 +69,22 @@ export default function Layout({ children }) {
         {/* Desktop header */}
         <header style={{
           height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 24px', borderBottom: '1px solid var(--line)',
-          background: 'var(--bg)', flexShrink: 0,
+          padding: '0 24px',
+          background: 'color-mix(in srgb, var(--bg) 85%, transparent)',
+          backdropFilter: 'blur(16px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+          flexShrink: 0,
           position: 'sticky', top: 0, zIndex: 50,
-          backdropFilter: 'blur(8px)',
+          boxShadow: '0 1px 0 var(--line), 0 4px 16px rgba(0,0,0,.12)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 4, height: 16, borderRadius: 2,
+              background: 'linear-gradient(180deg, var(--brand) 0%, var(--brand-hover) 100%)',
+              flexShrink: 0,
+            }} />
             <span style={{
-              fontSize: '0.8125rem', fontWeight: 600,
+              fontSize: '0.875rem', fontWeight: 600,
               color: 'var(--tx-1)', letterSpacing: '-0.01em',
             }}>
               {title}
