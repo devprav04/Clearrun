@@ -533,7 +533,7 @@ export default function Maintenance() {
   const { user } = useAuth();
   const toast    = useToast();
   const qc       = useQueryClient();
-  const isAdmin  = user?.role === 'manager';
+  const isAdmin  = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
   const [tab,          setTab]          = useState('tickets');
   const [modal,        setModal]        = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);

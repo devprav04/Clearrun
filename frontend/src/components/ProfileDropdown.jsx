@@ -52,7 +52,7 @@ export default function ProfileDropdown() {
             <User size={13} strokeWidth={1.8} /><span className="text-sm font-medium">My Profile</span>
           </Link>
         </DropdownMenuItem>
-        {user.role === 'manager' && (
+        {(user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser) && (
           <>
             <DropdownMenuItem asChild>
               <Link to="/users" className="flex items-center gap-2.5 px-3 py-2 text-[var(--tx-2)] hover:text-[var(--tx-1)] cursor-pointer">

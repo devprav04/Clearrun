@@ -267,7 +267,7 @@ export default function Instruments() {
   const { user }   = useAuth();
   const toast      = useToast();
   const qc         = useQueryClient();
-  const isAdmin    = user?.role === 'manager';
+  const isAdmin    = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
   const navigate   = useNavigate();
 
   const [search,       setSearch]       = useState('');

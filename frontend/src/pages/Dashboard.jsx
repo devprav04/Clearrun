@@ -128,7 +128,7 @@ export default function Dashboard() {
   };
 
   const counts    = dash?.instrument_status || dash || {};
-  const isManager = user?.role === 'manager';
+  const isManager = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
   const isTech    = user?.role === 'technician';
 
   if (dashLoading) return (

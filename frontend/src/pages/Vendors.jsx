@@ -379,7 +379,7 @@ export default function Vendors() {
   const { user } = useAuth();
   const toast    = useToast();
   const qc       = useQueryClient();
-  const isAdmin  = user?.role === 'manager';
+  const isAdmin  = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
 
   const [search,       setSearch]       = useState('');
   const [filterType,   setFilterType]   = useState('all');

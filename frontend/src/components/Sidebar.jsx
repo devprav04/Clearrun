@@ -56,7 +56,7 @@ function Item({ to, icon: Icon, label, collapsed }) {
 export default function Sidebar() {
   const { user } = useAuth();
   const { settings } = useSettings();
-  const isAdmin = user?.role === 'manager';
+  const isAdmin = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
 
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('sb') === '1'
