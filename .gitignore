@@ -18,11 +18,9 @@ venv/
 env/
 ENV/
 
-# Django
+# Logs & DB
 *.log
-local_settings.py
 db.sqlite3
-db.sqlite3-journal
 media/
 staticfiles/
 
@@ -57,5 +55,3 @@ celerybeat.pid
 htmlcov/
 .pytest_cache/
 
-# Migrations (keep them)
-# */migrations/*.py  — intentionally not ignored
