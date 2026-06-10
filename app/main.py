@@ -39,10 +39,12 @@ def _seed_admin():
             admin = models.User(
                 username='admin',
                 password=hash_password('Admin@1234'),
-                full_name='Administrator',
+                first_name='Admin',
+                last_name='User',
                 email='admin@cleanrun.app',
                 role='admin',
                 is_active=True,
+                is_superuser=True,
             )
             db.add(admin)
             db.commit()
