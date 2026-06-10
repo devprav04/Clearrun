@@ -6,16 +6,11 @@
 
 /* ─── Design Tokens ───────────────────────────────────────────── */
 :root {
-  /* Brand (indigo) — kept as --brand to avoid collision with shadcn --accent */
-  --brand:        #4f46e5;
-  --brand-hover:  #4338ca;
-  --brand-light:  #eef2ff;
-  --brand-inv:    #ffffff;
-  /* legacy aliases so existing pages keep working */
-  --accent:       var(--brand);
-  --accent-hover: var(--brand-hover);
-  --accent-light: var(--brand-light);
-  --accent-inv:   var(--brand-inv);
+  /* Brand (indigo) */
+  --brand:       #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-light: #eef2ff;
+  --brand-inv:   #ffffff;
 
   /* Semantic colors */
   --red:    #ef4444;
@@ -292,7 +287,7 @@ html.light .tab-btn.active { background: #ffffff; }
   border-color: color-mix(in srgb, var(--brand) 20%, transparent);
 }
 html.light .nav-item.active {
-  background: var(--accent-light);
+  background: var(--brand-light);
   color: var(--brand);
   border-color: color-mix(in srgb, var(--brand) 25%, transparent);
 }
@@ -331,9 +326,7 @@ html.light .nav-item.active {
 .grid-2    { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
 .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-.page-toolbar   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.toolbar-search { position: relative; flex: 1; min-width: 200px; }
-.table-wrap     { overflow-x: auto; }
+.table-wrap { overflow-x: auto; }
 
 /* ─── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 767px) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Plus, Trash2, Edit2, Shield, Wrench, User, Search, Lock, Save } from 'lucide-react';
+import { Plus, Trash2, Edit2, Shield, Wrench, User, Search, Lock, Save } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
