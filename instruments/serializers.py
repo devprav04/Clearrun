@@ -15,7 +15,7 @@ class VendorSerializer(serializers.ModelSerializer):
         return obj.instruments.count()
 
     def get_active_amc_count(self, obj):
-        return obj.amccontract_set.filter(status='active').count()
+        return obj.amc_contracts.filter(status='active').count()
 
 
 class InstrumentSerializer(serializers.ModelSerializer):
