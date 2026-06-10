@@ -276,17 +276,18 @@ export default function Instruments() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [instRes, vendorRes] = await Promise.all([
-        api.get('instruments/?page_size=200'),
-        isAdmin ? api.get('vendors/?page_size=200') : Promise.resolve({ data: [] }),
-      ]);
+      const instRes = await api.get('instruments/?page_size=200');
       setInstruments(instRes.data?.results || instRes.data || []);
-      setVendors(vendorRes.data?.results || vendorRes.data || []);
-    } catch { setInstruments([]); setVendors([]); }
-    finally { setLoading(false); }
-  };
+    } catch { setInstruments([]); }
 
-  useEffect(() => { fetchAll(); }, []);
+    if (isAdmin) {
+      try {
+        const vendorRes = await api.get('vendors/?page_size=200');
+        setVendors(vendorRes.data?.results || vendorRes.data || []);
+      } catch { setVendors([]); }
+    }
+    setLoading(false);
+  };
 
   const handleExport = async () => {
     try {

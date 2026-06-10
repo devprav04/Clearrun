@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, X, Search } from 'lucide-react';
 import api from '../api/axios';
 import { useToast } from './Toast';
