@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FlaskConical, MapPin, Plus, Pencil, Trash2, Upload, Download, CalendarCheck, Wand2, RefreshCw, Hash, Building2, Settings2, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, FlaskConical, MapPin, Plus, Pencil, Trash2, Upload, Download, CalendarCheck, Wand2, RefreshCw, Hash, Building2, Settings2, StickyNote, ChevronDown, ChevronUp, CheckSquare, Square, FileDown, X } from 'lucide-react';
+import { exportCSV } from '../utils/csvExport';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -275,6 +276,8 @@ export default function Instruments() {
   const [modal,        setModal]        = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [importing,    setImporting]    = useState(false);
+  const [selected,     setSelected]     = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const importRef = useRef();
 
   const { data: instruments = [], isLoading } = useInstruments();
@@ -308,6 +311,37 @@ export default function Instruments() {
   const handleDelete = async () => {
     try { await api.delete(`instruments/${deleteTarget.id}/`); toast('Instrument deleted.', 'success'); setDeleteTarget(null); invalidate(); }
     catch { toast('Failed to delete instrument.', 'error'); }
+  };
+
+  const toggleSelect = (id) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll    = () => setSelected(s => s.size === filtered.length ? new Set() : new Set(filtered.map(i => i.id)));
+
+  const handleBulkExport = () => {
+    const rows = filtered.filter(i => selected.has(i.id));
+    exportCSV(`instruments_${new Date().toISOString().slice(0,10)}.csv`, rows, [
+      { label: 'Name',          getValue: r => r.name },
+      { label: 'Serial Number', getValue: r => r.serial_number },
+      { label: 'Model',         getValue: r => r.model },
+      { label: 'Location',      getValue: r => r.location },
+      { label: 'Status',        getValue: r => r.status },
+      { label: 'Vendor',        getValue: r => r.vendor_name || '' },
+      { label: 'Type',          getValue: r => r.instrument_type || '' },
+    ]);
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    const ids = [...selected];
+    let failed = 0;
+    for (const id of ids) {
+      try { await api.delete(`instruments/${id}/`); }
+      catch { failed++; }
+    }
+    setBulkDeleting(false);
+    setSelected(new Set());
+    invalidate();
+    if (failed) toast(`Deleted ${ids.length - failed}, failed ${failed}.`, 'warning');
+    else toast(`Deleted ${ids.length} instrument${ids.length > 1 ? 's' : ''}.`, 'success');
   };
 
   const filtered = instruments.filter(inst => {
@@ -370,11 +404,46 @@ export default function Instruments() {
 
       <p className="t-small">{filtered.length} results</p>
 
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+          background: 'color-mix(in srgb,var(--brand) 8%,transparent)',
+          border: '1px solid color-mix(in srgb,var(--brand) 25%,transparent)',
+          borderRadius: 'var(--r-lg)',
+        }}>
+          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--brand)' }}>{selected.size} selected</span>
+          <div style={{ flex: 1 }} />
+          <Button variant="outline" size="sm" onClick={handleBulkExport} className="border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)] gap-1.5">
+            <FileDown size={12} />Export CSV
+          </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={handleBulkDelete} disabled={bulkDeleting} className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1.5">
+              {bulkDeleting ? <span className="w-3 h-3 border-2 border-destructive/20 border-t-destructive rounded-full animate-spin" /> : <Trash2 size={12} />}
+              Delete
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="text-[var(--tx-3)] px-2">
+            <X size={12} />
+          </Button>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="surface">
           <div className="empty-state">
-            <div className="empty-state-icon"><FlaskConical size={22} color="var(--tx-3)" /></div>
-            <p className="t-body">No instruments found</p>
+            <div className="empty-state-icon"><FlaskConical size={26} color="var(--tx-3)" /></div>
+            <p className="t-body" style={{ fontWeight: 500 }}>
+              {instruments.length === 0 ? 'No instruments yet' : 'No instruments match your filters'}
+            </p>
+            <p className="t-small mt-1" style={{ maxWidth: 260, textAlign: 'center' }}>
+              {instruments.length === 0 ? 'Add your first instrument to start tracking calibration, maintenance and status.' : 'Try adjusting your search or status filter.'}
+            </p>
+            {instruments.length === 0 && isAdmin && (
+              <Button onClick={() => setModal({ mode: 'add' })} size="sm" className="mt-3 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+                <Plus size={13} />Add First Instrument
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -382,11 +451,27 @@ export default function Instruments() {
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>Name</th><th>Serial Number</th><th>Model</th><th>Location</th><th>Status</th><th>Vendor</th><th></th></tr>
+                <tr>
+                  {isAdmin && (
+                    <th style={{ width: 36 }}>
+                      <button onClick={toggleAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx-3)', display: 'flex', padding: 0 }}>
+                        {selected.size === filtered.length && filtered.length > 0 ? <CheckSquare size={15} color="var(--brand)" /> : <Square size={15} />}
+                      </button>
+                    </th>
+                  )}
+                  <th>Name</th><th>Serial Number</th><th>Model</th><th>Location</th><th>Status</th><th>Vendor</th><th></th>
+                </tr>
               </thead>
               <tbody>
                 {filtered.map(inst => (
-                  <tr key={inst.id} className="cursor-pointer group">
+                  <tr key={inst.id} className="cursor-pointer group" style={selected.has(inst.id) ? { background: 'color-mix(in srgb,var(--brand) 5%,transparent)' } : {}}>
+                    {isAdmin && (
+                      <td onClick={e => e.stopPropagation()}>
+                        <button onClick={() => toggleSelect(inst.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tx-3)', display: 'flex', padding: 0 }}>
+                          {selected.has(inst.id) ? <CheckSquare size={15} color="var(--brand)" /> : <Square size={15} />}
+                        </button>
+                      </td>
+                    )}
                     <td onClick={() => navigate(`/instruments/${inst.id}`)}>
                       <div className="flex items-center gap-2">
                         <div className="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'color-mix(in srgb,var(--blue) 12%,transparent)' }}>

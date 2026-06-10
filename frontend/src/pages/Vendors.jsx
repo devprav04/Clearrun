@@ -444,8 +444,16 @@ export default function Vendors() {
       ) : filtered.length === 0 ? (
         <div className="surface">
           <div className="empty-state">
-            <div className="empty-state-icon"><Building2 size={22} color="var(--tx-3)" /></div>
-            <p className="t-body">{isAdmin ? 'No vendors found. Add your first vendor.' : 'No vendors added yet.'}</p>
+            <div className="empty-state-icon"><Building2 size={26} color="var(--tx-3)" /></div>
+            <p className="t-body" style={{ fontWeight: 500 }}>{vendors.length === 0 ? 'No vendors yet' : 'No vendors match your search'}</p>
+            <p className="t-small mt-1" style={{ maxWidth: 280, textAlign: 'center' }}>
+              {vendors.length === 0 ? 'Add your calibration, service and AMC vendors to link them to instruments and contracts.' : 'Try a different search or service type filter.'}
+            </p>
+            {vendors.length === 0 && isAdmin && (
+              <Button onClick={() => { setModalVendor(null); setShowModal(true); }} size="sm" className="mt-3 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+                <Plus size={13} />Add First Vendor
+              </Button>
+            )}
           </div>
         </div>
       ) : (

@@ -2,6 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import ProfileDropdown from './ProfileDropdown';
 import NotificationBell from './NotificationBell';
+import GlobalSearch from './GlobalSearch';
 import { LayoutGrid, Microscope, ClipboardList, Archive, Sun, Moon, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -92,6 +93,7 @@ export default function Layout({ children }) {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <GlobalSearch />
             <NotificationBell />
             <ThemeToggle />
             <ProfileDropdown />

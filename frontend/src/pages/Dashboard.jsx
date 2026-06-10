@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CircleCheck, CircleX, CalendarClock, Activity, AlertOctagon, Banknote, Clock, ShieldCheck, Wrench, Package, AlertTriangle, Link2, Calendar } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { CircleCheck, CircleX, CalendarClock, Activity, AlertOctagon, Banknote, Clock, ShieldCheck, Wrench, Package, AlertTriangle, Link2, Calendar, XCircle } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,7 @@ import StatusBadge from '../components/StatusBadge';
 import MaintenanceCalendar from '../components/MaintenanceCalendar';
 import TakePartModal from '../components/TakePartModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDashboard, useManagerReport, useInstruments, QK } from '../hooks/queries';
+import { useDashboard, useManagerReport, useInstruments, useCalibration, QK } from '../hooks/queries';
 import api from '../api/axios';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -114,6 +114,7 @@ export default function Dashboard() {
 
   const { data: dash, isLoading: dashLoading } = useDashboard();
   const { data: mgr } = useManagerReport();
+  const { data: calibration = [] } = useCalibration();
   const { data: allTickets = [] } = useQuery({
     queryKey: QK.tickets({}),
     queryFn: () => api.get('maintenance/tickets/?page_size=200').then(r => r.data?.results || r.data || []),
@@ -130,6 +131,13 @@ export default function Dashboard() {
   const counts    = dash?.instrument_status || dash || {};
   const isManager = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
   const isTech    = user?.role === 'technician';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdueCalibrations = useMemo(() =>
+    calibration.filter(c => c.next_due_date && new Date(c.next_due_date) < today),
+    [calibration]
+  );
 
   if (dashLoading) return (
     <div className="flex flex-col gap-6">
@@ -190,6 +198,33 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {overdueCalibrations.length > 0 && (
+        <div className="rounded-xl overflow-hidden" style={{ background: 'color-mix(in srgb,var(--red) 6%,transparent)', border: '1px solid color-mix(in srgb,var(--red) 22%,transparent)' }}>
+          <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid color-mix(in srgb,var(--red) 15%,transparent)' }}>
+            <XCircle size={14} color="var(--red)" />
+            <span className="text-sm font-semibold" style={{ color: 'var(--red)' }}>
+              {overdueCalibrations.length} calibration{overdueCalibrations.length > 1 ? 's' : ''} overdue
+            </span>
+          </div>
+          {overdueCalibrations.slice(0, 4).map(c => {
+            const daysOver = Math.ceil((today - new Date(c.next_due_date)) / 86400000);
+            return (
+              <div key={c.id} className="flex items-center justify-between px-4 py-2.5 flex-wrap gap-2" style={{ borderBottom: '1px solid color-mix(in srgb,var(--red) 8%,transparent)' }}>
+                <p className="text-sm font-medium text-[var(--tx-1)]">{c.instrument_name}</p>
+                <span className="badge" style={{ background: 'color-mix(in srgb,var(--red) 12%,transparent)', color: 'var(--red)', border: '1px solid color-mix(in srgb,var(--red) 25%,transparent)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: 9999, fontWeight: 600 }}>
+                  {daysOver}d overdue
+                </span>
+              </div>
+            );
+          })}
+          {overdueCalibrations.length > 4 && (
+            <div className="px-4 py-2 text-xs" style={{ color: 'var(--red)', opacity: .7 }}>
+              +{overdueCalibrations.length - 4} more overdue
+            </div>
+          )}
         </div>
       )}
 

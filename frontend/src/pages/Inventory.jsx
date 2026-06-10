@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Package, AlertTriangle, Plus, ArrowDownToLine, ArrowUpFromLine, Search, Pencil, Trash2 } from 'lucide-react';
+import { Package, AlertTriangle, Plus, ArrowDownToLine, ArrowUpFromLine, Search, Pencil, Trash2, FileDown } from 'lucide-react';
+import { exportCSV } from '../utils/csvExport';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -236,9 +237,22 @@ export default function Inventory() {
             </div>
           )}
           {isAdmin && (
-            <Button onClick={() => setPartModal({ mode: 'add' })} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
-              <Plus size={13} />Add Part
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => exportCSV(`inventory_${new Date().toISOString().slice(0,10)}.csv`, filtered, [
+                { label: 'Name',          getValue: r => r.name },
+                { label: 'Part Number',   getValue: r => r.part_number },
+                { label: 'In Stock',      getValue: r => r.quantity_in_stock },
+                { label: 'Min Stock',     getValue: r => r.minimum_stock_level || 0 },
+                { label: 'Unit Cost',     getValue: r => r.unit_cost || '' },
+                { label: 'Location',      getValue: r => r.location || '' },
+                { label: 'Vendor',        getValue: r => r.vendor_name || '' },
+              ])} className="border-[var(--line-2)] text-[var(--tx-2)] gap-1.5">
+                <FileDown size={13} />Export CSV
+              </Button>
+              <Button onClick={() => setPartModal({ mode: 'add' })} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+                <Plus size={13} />Add Part
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -258,7 +272,20 @@ export default function Inventory() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="surface"><div className="empty-state"><div className="empty-state-icon"><Package size={22} color="var(--tx-3)" /></div><p className="t-body">No parts found</p></div></div>
+        <div className="surface">
+          <div className="empty-state">
+            <div className="empty-state-icon"><Package size={26} color="var(--tx-3)" /></div>
+            <p className="t-body" style={{ fontWeight: 500 }}>{parts.length === 0 ? 'No spare parts yet' : 'No parts match your search'}</p>
+            <p className="t-small mt-1" style={{ maxWidth: 260, textAlign: 'center' }}>
+              {parts.length === 0 ? 'Add spare parts to track stock levels and get low-stock alerts.' : 'Try a different search or filter.'}
+            </p>
+            {parts.length === 0 && isAdmin && (
+              <Button onClick={() => setPartModal({ mode: 'add' })} size="sm" className="mt-3 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+                <Plus size={13} />Add First Part
+              </Button>
+            )}
+          </div>
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12 }}>
           {filtered.map(part => {

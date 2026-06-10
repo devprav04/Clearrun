@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Wrench, FileText, TestTube, Plus, AlertOctagon, Pencil, Trash2, ScrollText } from 'lucide-react';
+import { Wrench, FileText, TestTube, Plus, AlertOctagon, Pencil, Trash2, ScrollText, FileDown, CalendarDays, List } from 'lucide-react';
+import { exportCSV } from '../utils/csvExport';
+import MaintenanceCalendar from '../components/MaintenanceCalendar';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -488,17 +490,30 @@ function LogModal({ log, onClose, onSuccess }) {
 }
 
 /* ─── Reusable CRUD table ──────────────────────────────────────── */
-function CrudTable({ rows, columns, emptyIcon: Icon, emptyText, isAdmin, onEdit, onDelete }) {
+function CrudTable({ rows, columns, emptyIcon: Icon, emptyText, emptySubtext, isAdmin, onEdit, onDelete, onAdd, addLabel, exportFilename, exportColumns }) {
   if (!rows.length) return (
     <div className="surface">
       <div className="empty-state">
-        <div className="empty-state-icon"><Icon size={22} color="var(--tx-3)" /></div>
-        <p className="t-body">{emptyText}</p>
+        <div className="empty-state-icon"><Icon size={26} color="var(--tx-3)" /></div>
+        <p className="t-body" style={{ fontWeight: 500 }}>{emptyText}</p>
+        {emptySubtext && <p className="t-small mt-1" style={{ maxWidth: 260, textAlign: 'center' }}>{emptySubtext}</p>}
+        {isAdmin && onAdd && (
+          <Button onClick={onAdd} size="sm" className="mt-3 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+            <Plus size={13} />{addLabel || 'Add Record'}
+          </Button>
+        )}
       </div>
     </div>
   );
   return (
     <div className="surface overflow-hidden">
+      {exportFilename && exportColumns && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderBottom: '1px solid var(--line)' }}>
+          <Button variant="outline" size="sm" onClick={() => exportCSV(exportFilename, rows, exportColumns)} className="border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)] gap-1.5">
+            <FileDown size={12} />Export CSV
+          </Button>
+        </div>
+      )}
       <div className="table-wrap">
         <table className="data-table">
           <thead>
@@ -535,6 +550,7 @@ export default function Maintenance() {
   const qc       = useQueryClient();
   const isAdmin  = user?.role === 'manager' || user?.role === 'admin' || user?.is_superuser;
   const [tab,          setTab]          = useState('tickets');
+  const [viewMode,     setViewMode]     = useState('table');
   const [modal,        setModal]        = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -578,11 +594,27 @@ export default function Maintenance() {
           <h1 className="t-heading">Maintenance Hub</h1>
           <p className="t-body mt-0.5">Manage tickets, AMC contracts, calibration and service logs</p>
         </div>
-        {isAdmin && (
-          <Button onClick={addActions[tab].action} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
-            <Plus size={13} />{addActions[tab].label}
-          </Button>
-        )}
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* Calendar / table toggle */}
+          <div style={{ display: 'flex', border: '1px solid var(--line-2)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
+            {[['table', List, 'Table'], ['calendar', CalendarDays, 'Calendar']].map(([mode, Icon, label]) => (
+              <button key={mode} onClick={() => setViewMode(mode)} title={label} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+                background: viewMode === mode ? 'var(--brand)' : 'var(--bg-2)',
+                color: viewMode === mode ? '#fff' : 'var(--tx-2)',
+                border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500,
+                transition: 'all .12s',
+              }}>
+                <Icon size={13} />{label}
+              </button>
+            ))}
+          </div>
+          {isAdmin && viewMode === 'table' && (
+            <Button onClick={addActions[tab].action} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+              <Plus size={13} />{addActions[tab].label}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="tab-bar">
@@ -599,12 +631,27 @@ export default function Maintenance() {
         })}
       </div>
 
-      {loading ? (
+      {viewMode === 'calendar' ? (
+        <div className="surface overflow-hidden" style={{ padding: 8 }}>
+          <MaintenanceCalendar />
+        </div>
+      ) : loading ? (
         <div className="shimmer-box" style={{ height: 280, borderRadius: 'var(--r-lg)' }} />
       ) : (
         <>
           {tab === 'tickets' && (
-            <CrudTable rows={tickets} emptyIcon={AlertOctagon} emptyText="No breakdown tickets found" isAdmin={isAdmin}
+            <CrudTable rows={tickets} emptyIcon={AlertOctagon} emptyText="No breakdown tickets yet" emptySubtext="Breakdown tickets are created when an instrument fails and needs urgent attention." isAdmin={isAdmin}
+              onAdd={addActions.tickets.action} addLabel="New Ticket"
+              exportFilename={`tickets_${new Date().toISOString().slice(0,10)}.csv`}
+              exportColumns={[
+                { label: 'ID',          getValue: r => r.id },
+                { label: 'Instrument',  getValue: r => r.instrument_name || r.instrument },
+                { label: 'Priority',    getValue: r => r.priority },
+                { label: 'Status',      getValue: r => r.status },
+                { label: 'Assigned To', getValue: r => r.assigned_to_name || '' },
+                { label: 'Description', getValue: r => r.description },
+                { label: 'Reported',    getValue: r => r.reported_at?.slice(0,10) || '' },
+              ]}
               onEdit={r => setModal({ type: 'ticket', record: r })}
               onDelete={r => setDeleteTarget({ type: 'ticket', id: r.id, name: `Ticket #${r.id}` })}
               columns={[
@@ -619,7 +666,18 @@ export default function Maintenance() {
             />
           )}
           {tab === 'amc' && (
-            <CrudTable rows={amc} emptyIcon={FileText} emptyText="No AMC contracts found" isAdmin={isAdmin}
+            <CrudTable rows={amc} emptyIcon={FileText} emptyText="No AMC contracts yet" emptySubtext="Add Annual Maintenance Contracts to track vendor service agreements and renewal dates." isAdmin={isAdmin}
+              onAdd={addActions.amc.action} addLabel="Add Contract"
+              exportFilename={`amc_contracts_${new Date().toISOString().slice(0,10)}.csv`}
+              exportColumns={[
+                { label: 'Instrument',    getValue: r => r.instrument_name },
+                { label: 'Vendor',        getValue: r => r.vendor_name },
+                { label: 'Type',          getValue: r => r.contract_type?.replace(/_/g,' ') },
+                { label: 'Start Date',    getValue: r => r.start_date },
+                { label: 'End Date',      getValue: r => r.end_date },
+                { label: 'Value (INR)',   getValue: r => r.contract_value || 0 },
+                { label: 'Status',        getValue: r => r.status },
+              ]}
               onEdit={r => setModal({ type: 'amc', record: r })}
               onDelete={r => setDeleteTarget({ type: 'amc', id: r.id, name: `AMC for ${r.instrument_name}` })}
               columns={[
@@ -635,13 +693,23 @@ export default function Maintenance() {
             />
           )}
           {tab === 'calibration' && (
-            <CrudTable rows={calibration} emptyIcon={TestTube} emptyText="No calibration records found" isAdmin={isAdmin}
+            <CrudTable rows={calibration} emptyIcon={TestTube} emptyText="No calibration records yet" emptySubtext="Track instrument calibrations, certificates and next due dates to stay compliant." isAdmin={isAdmin}
+              onAdd={addActions.calibration.action} addLabel="Add Record"
+              exportFilename={`calibration_${new Date().toISOString().slice(0,10)}.csv`}
+              exportColumns={[
+                { label: 'Instrument',    getValue: r => r.instrument_name },
+                { label: 'Date',          getValue: r => r.calibration_date },
+                { label: 'Next Due',      getValue: r => r.next_due_date || '' },
+                { label: 'Calibrated By', getValue: r => r.calibrated_by_name || '' },
+                { label: 'Status',        getValue: r => r.status },
+                { label: 'Notes',         getValue: r => r.notes || '' },
+              ]}
               onEdit={r => setModal({ type: 'cal', record: r })}
               onDelete={r => setDeleteTarget({ type: 'cal', id: r.id, name: `Calibration for ${r.instrument_name}` })}
               columns={[
                 { label: 'Instrument',    render: r => <span style={{ fontWeight: 500 }}>{r.instrument_name}</span> },
                 { label: 'Date',          render: r => <span>{r.calibration_date}</span> },
-                { label: 'Next Due',      render: r => { const d = daysUntil(r.next_due_date); return <span style={{ color: d !== null && d < 30 ? 'var(--orange)' : 'var(--tx-1)', fontWeight: d !== null && d < 30 ? 600 : 400 }}>{r.next_due_date || '—'}</span>; } },
+                { label: 'Next Due',      render: r => { const d = daysUntil(r.next_due_date); return <span style={{ color: d !== null && d < 0 ? 'var(--red)' : d !== null && d < 30 ? 'var(--orange)' : 'var(--tx-1)', fontWeight: d !== null && d < 30 ? 600 : 400 }}>{r.next_due_date || '—'}{d !== null && d < 0 ? ' ⚠ overdue' : ''}</span>; } },
                 { label: 'Calibrated By', render: r => <span>{r.calibrated_by_name || '—'}</span> },
                 { label: 'Status',        render: r => <StatusBadge status={r.status} /> },
                 { label: 'Notes',         render: r => <span className="t-small">{r.notes || '—'}</span> },
@@ -649,7 +717,19 @@ export default function Maintenance() {
             />
           )}
           {tab === 'logs' && (
-            <CrudTable rows={logs} emptyIcon={ScrollText} emptyText="No service logs found" isAdmin={isAdmin}
+            <CrudTable rows={logs} emptyIcon={ScrollText} emptyText="No service logs yet" emptySubtext="Log every service visit, repair or preventive maintenance activity for a full audit trail." isAdmin={isAdmin}
+              onAdd={addActions.logs.action} addLabel="Log Service"
+              exportFilename={`service_logs_${new Date().toISOString().slice(0,10)}.csv`}
+              exportColumns={[
+                { label: 'Instrument',   getValue: r => r.instrument_name },
+                { label: 'Type',         getValue: r => r.maintenance_type?.replace(/_/g,' ') },
+                { label: 'Description',  getValue: r => r.description },
+                { label: 'Performed By', getValue: r => r.performed_by_name || '' },
+                { label: 'Date',         getValue: r => r.performed_at?.slice(0,10) || '' },
+                { label: 'Labour (INR)', getValue: r => r.labor_cost || 0 },
+                { label: 'Parts (INR)',  getValue: r => r.parts_cost || 0 },
+                { label: 'Next Due',     getValue: r => r.next_maintenance_due || '' },
+              ]}
               onEdit={r => setModal({ type: 'log', record: r })}
               onDelete={r => setDeleteTarget({ type: 'log', id: r.id, name: `Log #${r.id}` })}
               columns={[
