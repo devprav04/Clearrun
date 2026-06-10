@@ -28,6 +28,30 @@ def on_startup():
     log.info('Running database migrations...')
     models.Base.metadata.create_all(bind=engine)
     log.info('Database ready.')
+    _seed_admin()
+
+
+def _seed_admin():
+    from .auth import hash_password
+    db = SessionLocal()
+    try:
+        if not db.query(models.User).filter_by(username='admin').first():
+            admin = models.User(
+                username='admin',
+                password=hash_password('Admin@1234'),
+                full_name='Administrator',
+                email='admin@cleanrun.app',
+                role='admin',
+                is_active=True,
+            )
+            db.add(admin)
+            db.commit()
+            log.info('Default admin user created — change the password after first login.')
+    except Exception as e:
+        log.warning('Admin seed skipped: %s', e)
+        db.rollback()
+    finally:
+        db.close()
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
