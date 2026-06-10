@@ -10,12 +10,7 @@ const ICONS = {
   info:    { Icon: Info,         color: 'var(--blue)'  },
 };
 
-const BAR_COLOR = {
-  success: 'var(--green)',
-  error:   'var(--red)',
-  warning: 'var(--yellow)',
-  info:    'var(--blue)',
-};
+
 
 function ToastItem({ id, type = 'info', message, onDismiss }) {
   const { Icon, color } = ICONS[type] || ICONS.info;

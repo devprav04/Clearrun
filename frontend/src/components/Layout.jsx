@@ -54,7 +54,7 @@ function ThemeToggle() {
 }
 
 export default function Layout({ children }) {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 

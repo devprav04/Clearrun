@@ -27,8 +27,13 @@ export default function MaintenanceCalendar() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    api.get('reports/calendar/').then(r => setEvents(r.data || [])).catch(() => {}).finally(() => setLoading(false));
+    api.get('reports/calendar/')
+      .then(r => { if (!cancelled) setEvents(r.data || []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const year  = current.getFullYear();

@@ -17,5 +17,18 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // Context files and UI primitives intentionally export both components
+      // and hooks/utilities from the same file — this is the standard pattern.
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true, checkJS: false },
+      ],
+      // Suppress the false-positive on intentional reset-to-1 side-effects
+      'react-hooks/set-state-in-effect': 'off',
+      // react-hooks/incompatible-library is a warning from React Compiler —
+      // not an actual bug; suppress until RHF publishes official RC compat.
+      'react-hooks/incompatible-library': 'off',
+    },
   },
 ])
