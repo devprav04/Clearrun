@@ -17,7 +17,8 @@ export const useAuthStore = create((set) => ({
     return data.user
   },
 
-  logout: () => {
+  logout: async () => {
+    try { await api.post('auth/logout/') } catch { /* ignore — just logging */ }
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('user')

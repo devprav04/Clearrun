@@ -83,6 +83,16 @@ def change_password(
     return {'detail': 'Password changed successfully.'}
 
 
+@router.post('/logout/')
+def logout(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    log_action(db, current_user, request, 'logout', 'Auth', current_user.username, 'User logged out')
+    return {'detail': 'Logged out.'}
+
+
 @router.post('/me/upload-avatar/')
 def upload_avatar(
     request: Request,

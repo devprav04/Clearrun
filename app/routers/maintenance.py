@@ -31,8 +31,10 @@ def _enrich_amc(a: AMCContract) -> AMCContractOut:
 
 
 @router.get('/amc/', response_model=dict)
-def list_amc(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_amc(page: int = 1, page_size: int = 20, instrument: int = None, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     q = db.query(AMCContract)
+    if instrument:
+        q = q.filter(AMCContract.instrument_id == instrument)
     total = q.count()
     return paginated([_enrich_amc(a) for a in q.offset((page-1)*page_size).limit(page_size).all()], total)
 
@@ -116,10 +118,12 @@ def _gen_ticket_id(db: Session, ticket_db_id: int) -> str:
 
 
 @router.get('/tickets/', response_model=dict)
-def list_tickets(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_tickets(page: int = 1, page_size: int = 20, instrument: int = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     q = db.query(BreakdownTicket)
     if current_user.role == 'technician':
         q = q.filter(BreakdownTicket.assigned_to_id == current_user.id)
+    if instrument:
+        q = q.filter(BreakdownTicket.instrument_id == instrument)
     total = q.count()
     return paginated([_enrich_ticket(t) for t in q.order_by(BreakdownTicket.reported_at.desc()).offset((page-1)*page_size).limit(page_size).all()], total)
 
@@ -250,8 +254,10 @@ def _enrich_log(log: MaintenanceLog) -> MaintenanceLogOut:
 
 
 @router.get('/logs/', response_model=dict)
-def list_logs(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_logs(page: int = 1, page_size: int = 20, instrument: int = None, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     q = db.query(MaintenanceLog).order_by(MaintenanceLog.performed_at.desc())
+    if instrument:
+        q = q.filter(MaintenanceLog.instrument_id == instrument)
     total = q.count()
     return paginated([_enrich_log(l) for l in q.offset((page-1)*page_size).limit(page_size).all()], total)
 
@@ -320,8 +326,10 @@ def _enrich_cal(c: CalibrationRecord) -> CalibrationRecordOut:
 
 
 @router.get('/calibration/', response_model=dict)
-def list_calibrations(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_calibrations(page: int = 1, page_size: int = 20, instrument: int = None, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     q = db.query(CalibrationRecord).order_by(CalibrationRecord.calibration_date.desc())
+    if instrument:
+        q = q.filter(CalibrationRecord.instrument_id == instrument)
     total = q.count()
     return paginated([_enrich_cal(c) for c in q.offset((page-1)*page_size).limit(page_size).all()], total)
 

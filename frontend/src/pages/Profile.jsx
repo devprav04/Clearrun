@@ -83,10 +83,14 @@ export default function Profile() {
 
   const onSaveProfile = async (data) => {
     try {
-      const fd = new FormData();
-      Object.entries(data).forEach(([k, v]) => fd.append(k, v));
-      if (avatarFile) fd.append('profile_picture', avatarFile);
-      await api.patch('auth/me/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // Profile fields are JSON — avatar is a separate multipart endpoint
+      await api.patch('auth/me/', data);
+      if (avatarFile) {
+        const fd = new FormData();
+        fd.append('file', avatarFile);
+        await api.post('auth/me/upload-avatar/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        setAvatarFile(null);
+      }
       toast('Profile updated successfully.', 'success');
     } catch { toast('Failed to save profile.', 'error'); }
   };

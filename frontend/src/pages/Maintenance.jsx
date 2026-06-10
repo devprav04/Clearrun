@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wrench, FileText, TestTube, Plus, AlertOctagon, Pencil, Trash2 } from 'lucide-react';
+import { Wrench, FileText, TestTube, Plus, AlertOctagon, Pencil, Trash2, ScrollText } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import StatusBadge from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { useTickets, useAmc, useCalibration, useInstruments, useVendors, useUsers, QK } from '../hooks/queries';
+import { useTickets, useAmc, useCalibration, useLogs, useInstruments, useVendors, useUsers, QK } from '../hooks/queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,7 @@ const TABS = [
   { id: 'tickets',     label: 'Breakdown Tickets', icon: AlertOctagon },
   { id: 'amc',         label: 'AMC Contracts',     icon: FileText     },
   { id: 'calibration', label: 'Calibration',       icon: TestTube     },
+  { id: 'logs',        label: 'Service Logs',      icon: ScrollText   },
 ];
 
 function daysUntil(dateStr) {
@@ -41,6 +42,7 @@ function FF({ label, error, children }) {
   );
 }
 
+/* ─── Ticket Modal ─────────────────────────────────────────────── */
 const ticketSchema = z.object({
   instrument:       z.string().min(1, 'Select an instrument'),
   priority:         z.string().default('medium'),
@@ -158,6 +160,7 @@ function TicketModal({ ticket, onClose, onSuccess }) {
   );
 }
 
+/* ─── AMC Modal (fixed: instrument_id / vendor_id) ────────────── */
 const amcSchema = z.object({
   instrument:     z.string().min(1, 'Required'),
   vendor:         z.string().min(1, 'Required'),
@@ -178,21 +181,23 @@ function AmcModal({ contract, onClose, onSuccess }) {
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(amcSchema),
     defaultValues: {
-      instrument:     String(contract?.instrument     || ''),
-      vendor:         String(contract?.vendor         || ''),
-      contract_type:  contract?.contract_type         || 'comprehensive',
-      status:         contract?.status                || 'active',
-      start_date:     contract?.start_date            || '',
-      end_date:       contract?.end_date              || '',
-      contract_value: contract?.contract_value        || '',
-      notes:          contract?.notes                 || '',
+      instrument:     String(contract?.instrument_id   || contract?.instrument || ''),
+      vendor:         String(contract?.vendor_id       || contract?.vendor     || ''),
+      contract_type:  contract?.contract_type          || 'comprehensive',
+      status:         contract?.status                 || 'active',
+      start_date:     contract?.start_date             || '',
+      end_date:       contract?.end_date               || '',
+      contract_value: contract?.contract_value         || '',
+      notes:          contract?.notes                  || '',
     },
   });
 
   const onSave = async (data) => {
     try {
-      if (editing) await api.patch(`maintenance/amc/${contract.id}/`, data);
-      else         await api.post('maintenance/amc/', data);
+      const { instrument, vendor, ...rest } = data;
+      const payload = { ...rest, instrument_id: Number(instrument), vendor_id: Number(vendor) };
+      if (editing) await api.patch(`maintenance/amc/${contract.id}/`, rest);
+      else         await api.post('maintenance/amc/', payload);
       toast(editing ? 'Contract updated.' : 'Contract added.', 'success');
       onSuccess(); onClose();
     } catch (err) {
@@ -257,7 +262,7 @@ function AmcModal({ contract, onClose, onSuccess }) {
             <FF label="End Date *" error={errors.end_date?.message}>
               <Input {...register('end_date')} type="date" className={inputCls} />
             </FF>
-            <div className="flex flex-col gap-1.5" style={{ gridColumn: 'span 2' }}>
+            <div style={{ gridColumn: 'span 2' }}>
               <FF label="Contract Value (₹) *" error={errors.contract_value?.message}>
                 <Input {...register('contract_value')} type="number" min="0" step="0.01" placeholder="e.g. 250000" className={inputCls} />
               </FF>
@@ -279,6 +284,7 @@ function AmcModal({ contract, onClose, onSuccess }) {
   );
 }
 
+/* ─── Calibration Modal ────────────────────────────────────────── */
 const calSchema = z.object({
   instrument:        z.string().min(1, 'Required'),
   calibration_date:  z.string().min(1, 'Required'),
@@ -367,6 +373,121 @@ function CalibrationModal({ record, onClose, onSuccess }) {
   );
 }
 
+/* ─── Maintenance Log Modal ────────────────────────────────────── */
+const logSchema = z.object({
+  instrument:           z.string().min(1, 'Required'),
+  maintenance_type:     z.string().min(1, 'Required'),
+  description:          z.string().min(3, 'Required'),
+  performed_at:         z.string().min(1, 'Required'),
+  parts_used:           z.string().optional(),
+  labor_cost:           z.coerce.number().min(0).default(0),
+  parts_cost:           z.coerce.number().min(0).default(0),
+  next_maintenance_due: z.string().optional(),
+});
+
+function LogModal({ log, onClose, onSuccess }) {
+  const editing = Boolean(log);
+  const toast   = useToast();
+  const { data: instruments = [] } = useInstruments();
+
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(logSchema),
+    defaultValues: {
+      instrument:           String(log?.instrument_id || ''),
+      maintenance_type:     log?.maintenance_type     || 'corrective',
+      description:          log?.description          || '',
+      performed_at:         log?.performed_at?.slice(0,16) || new Date().toISOString().slice(0,16),
+      parts_used:           log?.parts_used           || '',
+      labor_cost:           log?.labor_cost           || 0,
+      parts_cost:           log?.parts_cost           || 0,
+      next_maintenance_due: log?.next_maintenance_due || '',
+    },
+  });
+
+  const onSave = async (data) => {
+    try {
+      if (editing) {
+        const { instrument, ...rest } = data;
+        await api.patch(`maintenance/logs/${log.id}/`, rest);
+      } else {
+        await api.post('maintenance/logs/', data);
+      }
+      toast(editing ? 'Log updated.' : 'Log created.', 'success');
+      onSuccess(); onClose();
+    } catch (err) {
+      toast(err.response?.data ? JSON.stringify(err.response.data) : 'Failed to save.', 'error');
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg bg-[var(--bg-2)] border-[var(--line-2)] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2"><ScrollText size={16} color="var(--tx-2)" /><DialogTitle className="text-[var(--tx-1)]">{editing ? 'Edit Service Log' : 'New Service Log'}</DialogTitle></div>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSave)} className="flex flex-col gap-3">
+          {!editing && (
+            <FF label="Instrument *" error={errors.instrument?.message}>
+              <Controller name="instrument" control={control} render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={selectCls}><SelectValue placeholder="Select instrument…" /></SelectTrigger>
+                  <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+                    {instruments.map(i => <SelectItem key={i.id} value={String(i.id)}>{i.name} ({i.serial_number})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )} />
+            </FF>
+          )}
+          <div className="grid-form">
+            <FF label="Maintenance Type *" error={errors.maintenance_type?.message}>
+              <Controller name="maintenance_type" control={control} render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+                    <SelectItem value="preventive">Preventive</SelectItem>
+                    <SelectItem value="corrective">Corrective</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                    <SelectItem value="overhaul">Overhaul</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              )} />
+            </FF>
+            <FF label="Performed At *" error={errors.performed_at?.message}>
+              <Input {...register('performed_at')} type="datetime-local" className={inputCls} />
+            </FF>
+          </div>
+          <FF label="Description *" error={errors.description?.message}>
+            <Textarea {...register('description')} rows={3} placeholder="Describe the work performed…" className={`${inputCls} h-auto`} />
+          </FF>
+          <FF label="Parts Used">
+            <Input {...register('parts_used')} placeholder="e.g. Filter X-22, O-ring 5mm" className={inputCls} />
+          </FF>
+          <div className="grid-form">
+            <FF label="Labour Cost (₹)">
+              <Input {...register('labor_cost')} type="number" min="0" step="0.01" placeholder="0" className={inputCls} />
+            </FF>
+            <FF label="Parts Cost (₹)">
+              <Input {...register('parts_cost')} type="number" min="0" step="0.01" placeholder="0" className={inputCls} />
+            </FF>
+          </div>
+          <FF label="Next Maintenance Due">
+            <Input {...register('next_maintenance_due')} type="date" className={inputCls} />
+          </FF>
+          <DialogFooter className="gap-2 sm:gap-2 mt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 border-[var(--line-2)] text-[var(--tx-2)]">Cancel</Button>
+            <Button type="submit" disabled={isSubmitting} className="flex-1 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+              {isSubmitting && <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+              {editing ? 'Save Changes' : 'Save Log'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Reusable CRUD table ──────────────────────────────────────── */
 function CrudTable({ rows, columns, emptyIcon: Icon, emptyText, isAdmin, onEdit, onDelete }) {
   if (!rows.length) return (
     <div className="surface">
@@ -407,6 +528,7 @@ function CrudTable({ rows, columns, emptyIcon: Icon, emptyText, isAdmin, onEdit,
   );
 }
 
+/* ─── Page ─────────────────────────────────────────────────────── */
 export default function Maintenance() {
   const { user } = useAuth();
   const toast    = useToast();
@@ -419,11 +541,17 @@ export default function Maintenance() {
   const { data: tickets     = [], isLoading: tLoading } = useTickets();
   const { data: amc         = [], isLoading: aLoading } = useAmc();
   const { data: calibration = [], isLoading: cLoading } = useCalibration();
-  const loading = tLoading || aLoading || cLoading;
+  const { data: logs        = [], isLoading: lLoading } = useLogs();
+  const loading = tLoading || aLoading || cLoading || lLoading;
 
   const handleDelete = async () => {
     const { type, id } = deleteTarget;
-    const ep = { ticket: `maintenance/tickets/${id}/`, amc: `maintenance/amc/${id}/`, cal: `maintenance/calibration/${id}/` };
+    const ep = {
+      ticket: `maintenance/tickets/${id}/`,
+      amc:    `maintenance/amc/${id}/`,
+      cal:    `maintenance/calibration/${id}/`,
+      log:    `maintenance/logs/${id}/`,
+    };
     try {
       await api.delete(ep[type]);
       toast('Record deleted.', 'success');
@@ -431,14 +559,16 @@ export default function Maintenance() {
       if (type === 'ticket') qc.invalidateQueries({ queryKey: QK.tickets() });
       if (type === 'amc')    qc.invalidateQueries({ queryKey: QK.amc });
       if (type === 'cal')    qc.invalidateQueries({ queryKey: QK.calibration });
+      if (type === 'log')    qc.invalidateQueries({ queryKey: QK.logs() });
     } catch { toast('Failed to delete.', 'error'); }
   };
 
-  const tabData = { tickets, amc, calibration };
+  const tabCounts = { tickets: tickets.length, amc: amc.length, calibration: calibration.length, logs: logs.length };
   const addActions = {
     tickets:     { label: 'New Ticket',   action: () => setModal({ type: 'ticket' }) },
     amc:         { label: 'Add Contract', action: () => setModal({ type: 'amc' })    },
     calibration: { label: 'Add Record',   action: () => setModal({ type: 'cal' })    },
+    logs:        { label: 'Log Service',  action: () => setModal({ type: 'log' })    },
   };
 
   return (
@@ -446,7 +576,7 @@ export default function Maintenance() {
       <div className="page-header">
         <div>
           <h1 className="t-heading">Maintenance Hub</h1>
-          <p className="t-body mt-0.5">Manage tickets, AMC contracts and calibration</p>
+          <p className="t-body mt-0.5">Manage tickets, AMC contracts, calibration and service logs</p>
         </div>
         {isAdmin && (
           <Button onClick={addActions[tab].action} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
@@ -457,7 +587,7 @@ export default function Maintenance() {
 
       <div className="tab-bar">
         {TABS.map(({ id, label, icon: Icon }) => {
-          const count  = tabData[id]?.length || 0;
+          const count  = tabCounts[id] || 0;
           const active = tab === id;
           return (
             <button key={id} onClick={() => setTab(id)} className={`tab-btn${active ? ' active' : ''}`}>
@@ -518,12 +648,29 @@ export default function Maintenance() {
               ]}
             />
           )}
+          {tab === 'logs' && (
+            <CrudTable rows={logs} emptyIcon={ScrollText} emptyText="No service logs found" isAdmin={isAdmin}
+              onEdit={r => setModal({ type: 'log', record: r })}
+              onDelete={r => setDeleteTarget({ type: 'log', id: r.id, name: `Log #${r.id}` })}
+              columns={[
+                { label: 'Instrument',  render: r => <span style={{ fontWeight: 500 }}>{r.instrument_name}</span> },
+                { label: 'Type',        render: r => <span className="capitalize">{r.maintenance_type?.replace(/_/g,' ')}</span> },
+                { label: 'Description', render: r => <span className="t-body block max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">{r.description}</span> },
+                { label: 'Performed By',render: r => <span>{r.performed_by_name || '—'}</span> },
+                { label: 'Date',        render: r => <span className="t-small">{r.performed_at?.slice(0,10) || '—'}</span> },
+                { label: 'Labour',      render: r => <span>₹{Number(r.labor_cost||0).toLocaleString('en-IN')}</span> },
+                { label: 'Parts',       render: r => <span>₹{Number(r.parts_cost||0).toLocaleString('en-IN')}</span> },
+                { label: 'Next Due',    render: r => <span className="t-small">{r.next_maintenance_due || '—'}</span> },
+              ]}
+            />
+          )}
         </>
       )}
 
       {modal?.type === 'ticket' && <TicketModal     ticket={modal.record}   onClose={() => setModal(null)} onSuccess={() => qc.invalidateQueries({ queryKey: QK.tickets() })} />}
       {modal?.type === 'amc'    && <AmcModal         contract={modal.record} onClose={() => setModal(null)} onSuccess={() => qc.invalidateQueries({ queryKey: QK.amc })} />}
       {modal?.type === 'cal'    && <CalibrationModal record={modal.record}   onClose={() => setModal(null)} onSuccess={() => qc.invalidateQueries({ queryKey: QK.calibration })} />}
+      {modal?.type === 'log'    && <LogModal         log={modal.record}      onClose={() => setModal(null)} onSuccess={() => qc.invalidateQueries({ queryKey: QK.logs() })} />}
       {deleteTarget && <ConfirmDialog title="Confirm Delete" message={`Delete "${deleteTarget.name}"? This cannot be undone.`} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} />}
     </div>
   );

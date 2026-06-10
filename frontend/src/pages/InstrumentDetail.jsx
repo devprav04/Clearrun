@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, FlaskConical, MapPin, Building2,
-  QrCode, Wrench, TestTube, FileText, Info
+  QrCode, Wrench, TestTube, FileText, Info, Download
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import api from '../api/axios';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -45,11 +46,12 @@ export default function InstrumentDetail() {
     if (tabData[tabId] || tabId === 'overview') return;
     setTabLoading(true);
     try {
-      let endpoint = '';
-      if (tabId === 'maintenance') endpoint = `maintenance/tickets/?instrument=${id}`;
-      if (tabId === 'calibration') endpoint = `maintenance/calibration/?instrument=${id}`;
-      if (tabId === 'amc')         endpoint = `maintenance/amc/?instrument=${id}`;
-      const r = await api.get(endpoint);
+      const endpoints = {
+        maintenance: `maintenance/tickets/?instrument=${id}&page_size=100`,
+        calibration: `maintenance/calibration/?instrument=${id}&page_size=100`,
+        amc:         `maintenance/amc/?instrument=${id}&page_size=100`,
+      };
+      const r = await api.get(endpoints[tabId]);
       setTabData(prev => ({ ...prev, [tabId]: r.data?.results || r.data || [] }));
     } catch {
       setTabData(prev => ({ ...prev, [tabId]: [] }));
@@ -131,7 +133,32 @@ export default function InstrumentDetail() {
                 <span className="t-title">QR Code</span>
               </div>
               {instrument.qr_code ? (
-                <img src={instrument.qr_code} alt="QR Code" style={{ width: '100%', maxWidth: 180, margin: '0 auto', display: 'block', borderRadius: 'var(--r-md)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ background: '#fff', padding: 12, borderRadius: 'var(--r-md)', display: 'inline-block' }}>
+                    <QRCodeSVG
+                      value={instrument.qr_code}
+                      size={148}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="t-mono t-small" style={{ textAlign: 'center' }}>{instrument.qr_code}</p>
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => {
+                      const svg = document.querySelector('.qr-svg-container svg');
+                      if (!svg) return;
+                      const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `qr-${instrument.serial_number}.svg`;
+                      a.click();
+                    }}
+                    className="w-full border-[var(--line-2)] text-[var(--tx-2)]"
+                  >
+                    <Download size={12} /> Download QR
+                  </Button>
+                </div>
               ) : (
                 <div style={{ width: '100%', height: 140, background: 'var(--bg-3)', borderRadius: 'var(--r-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <QrCode size={40} color="var(--tx-3)" style={{ opacity: .3 }} />

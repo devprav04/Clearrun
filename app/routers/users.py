@@ -157,11 +157,13 @@ def audit_log(
     page_size: int = 20,
     user: int = None,
     action: str = None,
+    search: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager),
 ):
     from ..models import AuditLog
     from ..schemas import AuditLogOut
+    from sqlalchemy import or_
 
     ACTION_LABELS = {
         'create': 'Created', 'update': 'Updated', 'delete': 'Deleted',
@@ -174,6 +176,13 @@ def audit_log(
         q = q.filter(AuditLog.user_id == user)
     if action:
         q = q.filter(AuditLog.action == action)
+    if search:
+        like = f'%{search}%'
+        q = q.filter(or_(
+            AuditLog.resource_name.ilike(like),
+            AuditLog.resource_type.ilike(like),
+            AuditLog.detail.ilike(like),
+        ))
     q = q.order_by(AuditLog.timestamp.desc())
     total = q.count()
     logs = q.offset((page - 1) * page_size).limit(page_size).all()

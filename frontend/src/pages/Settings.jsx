@@ -65,10 +65,14 @@ function CompanyTab() {
   const handleSubmit = async e => {
     e.preventDefault(); setLoading(true);
     try {
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-      if (logoFile) fd.append('logo', logoFile);
-      await api.patch('settings/company/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // Company settings are JSON; logo upload is a separate multipart endpoint
+      await api.patch('settings/company/', form);
+      if (logoFile) {
+        const fd = new FormData();
+        fd.append('logo', logoFile);
+        await api.post('settings/company/logo/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        setLogoFile(null);
+      }
       await fetchSettings(); toast('Settings saved.', 'success');
     } catch { toast('Failed to save settings.', 'error'); }
     finally { setLoading(false); }
