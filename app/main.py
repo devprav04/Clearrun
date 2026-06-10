@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-from .routers import auth, users, vendors, instruments, maintenance, inventory, reports, settings_router
+from .routers import auth, users, vendors, instruments, maintenance, inventory, reports, settings_router, pdf_reports
 
 app = FastAPI(title='CleanRun IMMS', version='2.0.0', docs_url='/api/docs', redoc_url='/api/redoc')
 
@@ -26,6 +26,7 @@ app.include_router(instruments.router)
 app.include_router(maintenance.router)
 app.include_router(inventory.router)
 app.include_router(reports.router)
+app.include_router(pdf_reports.router)
 app.include_router(settings_router.router)
 
 # ── Static files (media uploads) ──────────────────────────────────────────────

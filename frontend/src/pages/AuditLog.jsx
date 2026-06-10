@@ -55,7 +55,7 @@ export default function AuditLog() {
   const PAGE_SIZE = 25;
 
   const fetchUsers = useCallback(async () => {
-    try { const res = await api.get('/auth/users/'); setUsers(res.data?.results || res.data || []); } catch {}
+    try { const res = await api.get('auth/users/'); setUsers(res.data?.results || res.data || []); } catch {}
   }, []);
 
   const fetchLogs = useCallback(async () => {
