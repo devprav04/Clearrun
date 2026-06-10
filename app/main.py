@@ -10,6 +10,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, users, vendors, instruments, maintenance, inventory, reports, settings_router, pdf_reports
+from .database import engine, SessionLocal
+from . import models
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -19,6 +21,13 @@ logging.basicConfig(
 log = logging.getLogger('cleanrun')
 
 app = FastAPI(title='CleanRun IMMS', version='2.0.0', docs_url='/api/docs', redoc_url='/api/redoc')
+
+
+@app.on_event('startup')
+def on_startup():
+    log.info('Running database migrations...')
+    models.Base.metadata.create_all(bind=engine)
+    log.info('Database ready.')
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
