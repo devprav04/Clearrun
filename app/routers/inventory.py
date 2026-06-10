@@ -42,7 +42,7 @@ def list_parts(page: int = 1, page_size: int = 20, search: str = '', db: Session
         like = f'%{search}%'
         q = q.filter(SparePart.name.ilike(like) | SparePart.part_number.ilike(like))
     total = q.count()
-    return paginated([_enrich_part(p) for p in q.offset((page-1)*page_size).limit(page_size).all()], total)
+    return paginated([_enrich_part(p) for p in q.order_by(SparePart.name).offset((page-1)*page_size).limit(page_size).all()], total)
 
 
 @router.get('/parts/{part_id}/', response_model=SparePartOut)
@@ -55,6 +55,10 @@ def get_part(part_id: int, db: Session = Depends(get_db), _: User = Depends(get_
 
 @router.post('/parts/', response_model=SparePartOut, status_code=201)
 def create_part(request: Request, body: SparePartCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if body.quantity_in_stock < 0:
+        raise HTTPException(status_code=400, detail='quantity_in_stock cannot be negative.')
+    if body.minimum_stock_level < 0:
+        raise HTTPException(status_code=400, detail='minimum_stock_level cannot be negative.')
     p = SparePart(**body.model_dump())
     db.add(p)
     db.commit()
@@ -69,7 +73,10 @@ def update_part(part_id: int, request: Request, body: SparePartUpdate, db: Sessi
     p = db.query(SparePart).filter(SparePart.id == part_id).first()
     if not p:
         raise HTTPException(status_code=404, detail='Spare part not found.')
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    if 'quantity_in_stock' in updates and updates['quantity_in_stock'] < 0:
+        raise HTTPException(status_code=400, detail='quantity_in_stock cannot be negative.')
+    for field, value in updates.items():
         setattr(p, field, value)
     db.commit()
     db.refresh(p)
@@ -89,16 +96,34 @@ def delete_part(part_id: int, request: Request, db: Session = Depends(get_db), c
 
 @router.get('/transactions/', response_model=dict)
 def list_transactions(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    q = db.query(StockTransaction)
+    q = db.query(StockTransaction).order_by(StockTransaction.created_at.desc())
     total = q.count()
     return paginated([_enrich_tx(t) for t in q.offset((page-1)*page_size).limit(page_size).all()], total)
 
 
 @router.post('/transactions/', response_model=StockTransactionOut, status_code=201)
 def create_transaction(request: Request, body: StockTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if body.quantity <= 0:
+        raise HTTPException(status_code=400, detail='Quantity must be greater than zero.')
+
     p = db.query(SparePart).filter(SparePart.id == body.part).first()
     if not p:
         raise HTTPException(status_code=404, detail='Spare part not found.')
+
+    if body.transaction_type == 'in':
+        p.quantity_in_stock += body.quantity
+    elif body.transaction_type == 'out':
+        if p.quantity_in_stock < body.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f'Insufficient stock. Available: {p.quantity_in_stock}, requested: {body.quantity}.',
+            )
+        p.quantity_in_stock -= body.quantity
+    elif body.transaction_type == 'adjust':
+        p.quantity_in_stock = body.quantity
+    else:
+        raise HTTPException(status_code=400, detail=f'Unknown transaction_type: {body.transaction_type!r}.')
+
     tx = StockTransaction(
         part_id=body.part,
         transaction_type=body.transaction_type,
@@ -107,13 +132,6 @@ def create_transaction(request: Request, body: StockTransactionCreate, db: Sessi
         reference=body.reference,
         notes=body.notes,
     )
-    # Update stock quantity
-    if body.transaction_type == 'in':
-        p.quantity_in_stock += body.quantity
-    elif body.transaction_type == 'out':
-        p.quantity_in_stock -= body.quantity
-    else:
-        p.quantity_in_stock = body.quantity
     db.add(tx)
     db.commit()
     db.refresh(tx)

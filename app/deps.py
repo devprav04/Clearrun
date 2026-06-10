@@ -42,6 +42,6 @@ def get_current_user(
 
 
 def require_manager(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != 'manager':
+    if not (current_user.role == 'manager' or current_user.is_superuser):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Manager access required.')
     return current_user

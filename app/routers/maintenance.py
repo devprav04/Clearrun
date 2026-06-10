@@ -58,6 +58,8 @@ def get_amc(amc_id: int, db: Session = Depends(get_db), _: User = Depends(get_cu
 
 @router.post('/amc/', response_model=AMCContractOut, status_code=201)
 def create_amc(request: Request, body: AMCContractCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if body.end_date <= body.start_date:
+        raise HTTPException(status_code=400, detail='end_date must be after start_date.')
     a = AMCContract(**body.model_dump())
     db.add(a)
     db.commit()
@@ -72,8 +74,12 @@ def update_amc(amc_id: int, request: Request, body: AMCContractUpdate, db: Sessi
     a = db.query(AMCContract).filter(AMCContract.id == amc_id).first()
     if not a:
         raise HTTPException(status_code=404, detail='AMC contract not found.')
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    for field, value in updates.items():
         setattr(a, field, value)
+    # re-validate after applying updates
+    if a.end_date <= a.start_date:
+        raise HTTPException(status_code=400, detail='end_date must be after start_date.')
     db.commit()
     db.refresh(a)
     log_action(db, current_user, request, 'update', 'AMC Contract', a.instrument.name, f'Updated AMC — status: {a.status}')
@@ -103,10 +109,10 @@ def _enrich_ticket(t: BreakdownTicket) -> BreakdownTicketOut:
     return out
 
 
-def _gen_ticket_id(db: Session) -> str:
+def _gen_ticket_id(db: Session, ticket_db_id: int) -> str:
+    """Race-condition-free: uses the DB-assigned primary key, not a COUNT."""
     today = date.today()
-    count = db.query(BreakdownTicket).count() + 1
-    return f'TKT-{today.strftime("%Y%m")}-{count:03d}'
+    return f'TKT-{today.strftime("%Y%m")}-{ticket_db_id:04d}'
 
 
 @router.get('/tickets/', response_model=dict)
@@ -115,7 +121,7 @@ def list_tickets(page: int = 1, page_size: int = 20, db: Session = Depends(get_d
     if current_user.role == 'technician':
         q = q.filter(BreakdownTicket.assigned_to_id == current_user.id)
     total = q.count()
-    return paginated([_enrich_ticket(t) for t in q.offset((page-1)*page_size).limit(page_size).all()], total)
+    return paginated([_enrich_ticket(t) for t in q.order_by(BreakdownTicket.reported_at.desc()).offset((page-1)*page_size).limit(page_size).all()], total)
 
 
 @router.get('/tickets/{ticket_id}/', response_model=BreakdownTicketOut)
@@ -132,7 +138,7 @@ def create_ticket(request: Request, body: BreakdownTicketCreate, db: Session = D
     if not instrument:
         raise HTTPException(status_code=404, detail='Instrument not found.')
     ticket = BreakdownTicket(
-        ticket_id=_gen_ticket_id(db),
+        ticket_id='',  # filled in after flush
         instrument_id=body.instrument,
         reported_by_id=current_user.id,
         priority=body.priority,
@@ -140,16 +146,19 @@ def create_ticket(request: Request, body: BreakdownTicketCreate, db: Session = D
     )
     instrument.status = 'out_of_service'
     db.add(ticket)
+    db.flush()  # assigns ticket.id from DB sequence — atomic, no race condition
+    ticket.ticket_id = _gen_ticket_id(db, ticket.id)
     db.commit()
     db.refresh(ticket)
     log_action(db, current_user, request, 'ticket', 'Breakdown Ticket', instrument.name,
                f'Reported breakdown — {body.priority} priority: {body.description[:100]}')
-    # Notify vendor via email (non-blocking, fails silently)
     _notify_vendor(ticket, instrument, current_user, db)
     return _enrich_ticket(ticket)
 
 
 def _notify_vendor(ticket: BreakdownTicket, instrument: Instrument, reporter: User, db: Session):
+    """Fire-and-forget vendor email — failure is logged, never propagated to the caller."""
+    import logging
     try:
         from decouple import config
         import smtplib
@@ -165,25 +174,27 @@ def _notify_vendor(ticket: BreakdownTicket, instrument: Instrument, reporter: Us
         from ..models import CompanySettings
         cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
         company_name = (cs and cs.company_name) or 'CleanRun Lab'
+        reporter_name = f'{reporter.first_name} {reporter.last_name}'.strip() or reporter.username
 
-        body = (
+        body_text = (
             f'Dear {amc.vendor.contact_person or amc.vendor.name},\n\n'
             f'Service call for:\n'
             f'  Instrument : {instrument.name}\n'
             f'  Serial No  : {instrument.serial_number}\n'
+            f'  Ticket     : {ticket.ticket_id}\n'
             f'  Priority   : {ticket.priority}\n'
             f'  Description: {ticket.description}\n\n'
-            f'Reported by: {reporter.get_full_name() if hasattr(reporter, "get_full_name") else reporter.username}\n'
+            f'Reported by: {reporter_name}\n'
             f'Regards,\n{company_name}'
         )
-        msg = MIMEText(body)
+        msg = MIMEText(body_text)
         msg['Subject'] = f'[Service Call] Breakdown — {instrument.name} | {company_name}'
         msg['From'] = config('DEFAULT_FROM_EMAIL', default='cleanrun@lab.com')
         msg['To'] = amc.vendor.email
 
-        host = config('EMAIL_HOST', default='smtp.gmail.com')
-        port = config('EMAIL_PORT', default=587, cast=int)
-        user = config('EMAIL_HOST_USER', default='')
+        host     = config('EMAIL_HOST', default='smtp.gmail.com')
+        port     = config('EMAIL_PORT', default=587, cast=int)
+        user     = config('EMAIL_HOST_USER', default='')
         password = config('EMAIL_HOST_PASSWORD', default='')
         if user and password:
             with smtplib.SMTP(host, port) as smtp:
@@ -191,7 +202,7 @@ def _notify_vendor(ticket: BreakdownTicket, instrument: Instrument, reporter: Us
                 smtp.login(user, password)
                 smtp.send_message(msg)
     except Exception:
-        pass
+        logging.getLogger(__name__).exception('Failed to send vendor breakdown notification')
 
 
 @router.patch('/tickets/{ticket_id}/', response_model=BreakdownTicketOut)
@@ -206,10 +217,13 @@ def update_ticket(ticket_id: int, request: Request, body: BreakdownTicketUpdate,
         setattr(t, field, value)
     if t.status == 'resolved' and not t.resolved_at:
         t.resolved_at = dt.datetime.now(timezone.utc)
+        # Restore instrument to operational when the ticket is resolved
+        if t.instrument and t.instrument.status == 'out_of_service':
+            t.instrument.status = 'operational'
     db.commit()
     db.refresh(t)
-    log_action(db, current_user, request, 'update', 'Breakdown Ticket', t.instrument.name,
-               f'Ticket #{t.id} → {t.status}')
+    log_action(db, current_user, request, 'update', 'Breakdown Ticket',
+               t.instrument.name if t.instrument else '', f'Ticket #{t.ticket_id} → {t.status}')
     return _enrich_ticket(t)
 
 
@@ -218,7 +232,8 @@ def delete_ticket(ticket_id: int, request: Request, db: Session = Depends(get_db
     t = db.query(BreakdownTicket).filter(BreakdownTicket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail='Ticket not found.')
-    log_action(db, current_user, request, 'delete', 'Breakdown Ticket', t.instrument.name, f'Deleted ticket #{t.id}')
+    log_action(db, current_user, request, 'delete', 'Breakdown Ticket',
+               t.instrument.name if t.instrument else '', f'Deleted ticket #{t.ticket_id}')
     db.delete(t)
     db.commit()
 
@@ -236,7 +251,7 @@ def _enrich_log(log: MaintenanceLog) -> MaintenanceLogOut:
 
 @router.get('/logs/', response_model=dict)
 def list_logs(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    q = db.query(MaintenanceLog)
+    q = db.query(MaintenanceLog).order_by(MaintenanceLog.performed_at.desc())
     total = q.count()
     return paginated([_enrich_log(l) for l in q.offset((page-1)*page_size).limit(page_size).all()], total)
 
@@ -258,7 +273,8 @@ def create_log(request: Request, body: MaintenanceLogCreate, db: Session = Depen
     db.add(log)
     db.commit()
     db.refresh(log)
-    log_action(db, current_user, request, 'create', 'Maintenance Log', log.instrument.name,
+    log_action(db, current_user, request, 'create', 'Maintenance Log',
+               log.instrument.name if log.instrument else '',
                f'Logged {log.maintenance_type} on {log.performed_at.date()}')
     return _enrich_log(log)
 
@@ -272,7 +288,8 @@ def update_log(log_id: int, request: Request, body: MaintenanceLogUpdate, db: Se
         setattr(log, field, value)
     db.commit()
     db.refresh(log)
-    log_action(db, current_user, request, 'update', 'Maintenance Log', log.instrument.name, f'Updated maintenance log #{log.id}')
+    log_action(db, current_user, request, 'update', 'Maintenance Log',
+               log.instrument.name if log.instrument else '', f'Updated maintenance log #{log.id}')
     return _enrich_log(log)
 
 
@@ -281,7 +298,8 @@ def delete_log(log_id: int, request: Request, db: Session = Depends(get_db), cur
     log = db.query(MaintenanceLog).filter(MaintenanceLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail='Maintenance log not found.')
-    log_action(db, current_user, request, 'delete', 'Maintenance Log', log.instrument.name, f'Deleted maintenance log #{log.id}')
+    log_action(db, current_user, request, 'delete', 'Maintenance Log',
+               log.instrument.name if log.instrument else '', f'Deleted maintenance log #{log.id}')
     db.delete(log)
     db.commit()
 
@@ -303,7 +321,7 @@ def _enrich_cal(c: CalibrationRecord) -> CalibrationRecordOut:
 
 @router.get('/calibration/', response_model=dict)
 def list_calibrations(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    q = db.query(CalibrationRecord)
+    q = db.query(CalibrationRecord).order_by(CalibrationRecord.calibration_date.desc())
     total = q.count()
     return paginated([_enrich_cal(c) for c in q.offset((page-1)*page_size).limit(page_size).all()], total)
 
@@ -318,6 +336,8 @@ def get_calibration(cal_id: int, db: Session = Depends(get_db), _: User = Depend
 
 @router.post('/calibration/', response_model=CalibrationRecordOut, status_code=201)
 def create_calibration(request: Request, body: CalibrationRecordCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if body.next_due_date <= body.calibration_date:
+        raise HTTPException(status_code=400, detail='next_due_date must be after calibration_date.')
     data = body.model_dump()
     instrument_id = data.pop('instrument')
     vendor_id = data.pop('calibrated_by_vendor', None)
@@ -325,7 +345,8 @@ def create_calibration(request: Request, body: CalibrationRecordCreate, db: Sess
     db.add(c)
     db.commit()
     db.refresh(c)
-    log_action(db, current_user, request, 'create', 'Calibration', c.instrument.name,
+    log_action(db, current_user, request, 'create', 'Calibration',
+               c.instrument.name if c.instrument else '',
                f'Calibrated on {c.calibration_date} — next due {c.next_due_date}')
     return _enrich_cal(c)
 
@@ -340,9 +361,12 @@ def update_calibration(cal_id: int, request: Request, body: CalibrationRecordUpd
         c.calibrated_by_vendor_id = updates.pop('calibrated_by_vendor')
     for field, value in updates.items():
         setattr(c, field, value)
+    if c.next_due_date <= c.calibration_date:
+        raise HTTPException(status_code=400, detail='next_due_date must be after calibration_date.')
     db.commit()
     db.refresh(c)
-    log_action(db, current_user, request, 'update', 'Calibration', c.instrument.name, f'Updated calibration record #{c.id}')
+    log_action(db, current_user, request, 'update', 'Calibration',
+               c.instrument.name if c.instrument else '', f'Updated calibration record #{c.id}')
     return _enrich_cal(c)
 
 
@@ -351,6 +375,7 @@ def delete_calibration(cal_id: int, request: Request, db: Session = Depends(get_
     c = db.query(CalibrationRecord).filter(CalibrationRecord.id == cal_id).first()
     if not c:
         raise HTTPException(status_code=404, detail='Calibration record not found.')
-    log_action(db, current_user, request, 'delete', 'Calibration', c.instrument.name, f'Deleted calibration record #{c.id}')
+    log_action(db, current_user, request, 'delete', 'Calibration',
+               c.instrument.name if c.instrument else '', f'Deleted calibration record #{c.id}')
     db.delete(c)
     db.commit()

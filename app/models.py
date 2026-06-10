@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey,
-    Integer, JSON, Numeric, SmallInteger, String, Table, Text,
+    Index, Integer, JSON, Numeric, SmallInteger, String, Table, Text,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship
 
@@ -55,6 +55,11 @@ class User(Base):
 
 class AuditLog(Base):
     __tablename__ = 'accounts_auditlog'
+    __table_args__ = (
+        Index('ix_auditlog_timestamp', 'timestamp'),
+        Index('ix_auditlog_user_id',   'user_id'),
+        Index('ix_auditlog_action',    'action'),
+    )
 
     id            = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id       = Column(BigInteger, ForeignKey('accounts_user.id', ondelete='SET NULL'), nullable=True)
@@ -101,6 +106,11 @@ class Vendor(Base):
 
 class Instrument(Base):
     __tablename__ = 'instruments_instrument'
+    __table_args__ = (
+        Index('ix_instrument_status',    'status'),
+        Index('ix_instrument_name',      'name'),
+        Index('ix_instrument_vendor_id', 'vendor_id'),
+    )
 
     id                   = Column(BigInteger, primary_key=True, autoincrement=True)
     name                 = Column(String(200))
@@ -129,6 +139,12 @@ class Instrument(Base):
 # ── Maintenance ──────────────────────────────────────────────────────────────
 class AMCContract(Base):
     __tablename__ = 'maintenance_amccontract'
+    __table_args__ = (
+        Index('ix_amc_end_date',      'end_date'),
+        Index('ix_amc_status',        'status'),
+        Index('ix_amc_instrument_id', 'instrument_id'),
+        Index('ix_amc_vendor_id',     'vendor_id'),
+    )
 
     id                = Column(BigInteger, primary_key=True, autoincrement=True)
     instrument_id     = Column(BigInteger, ForeignKey('instruments_instrument.id', ondelete='CASCADE'))
@@ -148,6 +164,12 @@ class AMCContract(Base):
 
 class BreakdownTicket(Base):
     __tablename__ = 'maintenance_breakdownticket'
+    __table_args__ = (
+        Index('ix_ticket_status',        'status'),
+        Index('ix_ticket_instrument_id', 'instrument_id'),
+        Index('ix_ticket_assigned_to',   'assigned_to_id'),
+        Index('ix_ticket_reported_at',   'reported_at'),
+    )
 
     id               = Column(BigInteger, primary_key=True, autoincrement=True)
     ticket_id        = Column(String(20), unique=True, default='')
@@ -169,6 +191,11 @@ class BreakdownTicket(Base):
 
 class MaintenanceLog(Base):
     __tablename__ = 'maintenance_maintenancelog'
+    __table_args__ = (
+        Index('ix_maint_instrument_id',    'instrument_id'),
+        Index('ix_maint_performed_at',     'performed_at'),
+        Index('ix_maint_next_due',         'next_maintenance_due'),
+    )
 
     id                   = Column(BigInteger, primary_key=True, autoincrement=True)
     instrument_id        = Column(BigInteger, ForeignKey('instruments_instrument.id', ondelete='CASCADE'))
@@ -190,6 +217,12 @@ class MaintenanceLog(Base):
 
 class CalibrationRecord(Base):
     __tablename__ = 'maintenance_calibrationrecord'
+    __table_args__ = (
+        Index('ix_cal_instrument_id', 'instrument_id'),
+        Index('ix_cal_next_due_date', 'next_due_date'),
+        Index('ix_cal_status',        'status'),
+        Index('ix_cal_cal_date',      'calibration_date'),
+    )
 
     id                    = Column(BigInteger, primary_key=True, autoincrement=True)
     instrument_id         = Column(BigInteger, ForeignKey('instruments_instrument.id', ondelete='CASCADE'))
@@ -210,6 +243,10 @@ class CalibrationRecord(Base):
 # ── Inventory ────────────────────────────────────────────────────────────────
 class SparePart(Base):
     __tablename__ = 'inventory_sparepart'
+    __table_args__ = (
+        Index('ix_part_vendor_id', 'vendor_id'),
+        Index('ix_part_qty_stock', 'quantity_in_stock'),
+    )
 
     id                  = Column(BigInteger, primary_key=True, autoincrement=True)
     name                = Column(String(200))
@@ -230,6 +267,10 @@ class SparePart(Base):
 
 class StockTransaction(Base):
     __tablename__ = 'inventory_stocktransaction'
+    __table_args__ = (
+        Index('ix_stock_tx_part_id',    'part_id'),
+        Index('ix_stock_tx_created_at', 'created_at'),
+    )
 
     id               = Column(BigInteger, primary_key=True, autoincrement=True)
     part_id          = Column(BigInteger, ForeignKey('inventory_sparepart.id', ondelete='CASCADE'))
@@ -267,6 +308,9 @@ class CompanySettings(Base):
 
 class CustomOption(Base):
     __tablename__ = 'settings_app_customoption'
+    __table_args__ = (
+        Index('ix_custom_option_field', 'field'),
+    )
 
     id         = Column(BigInteger, primary_key=True, autoincrement=True)
     field      = Column(String(50))
@@ -307,10 +351,10 @@ class PDFTemplate(Base):
     body_font_size         = Column(SmallInteger, default=10)
     paper_size             = Column(String(10), default='A4')
     orientation            = Column(String(15), default='portrait')
-    margin_top             = Column(Float, default=2.0)
-    margin_bottom          = Column(Float, default=2.0)
-    margin_left            = Column(Float, default=2.0)
-    margin_right           = Column(Float, default=2.0)
+    margin_top             = Column(Float, default=20.0)
+    margin_bottom          = Column(Float, default=20.0)
+    margin_left            = Column(Float, default=15.0)
+    margin_right           = Column(Float, default=15.0)
     include_logo           = Column(Boolean, default=True)
     show_address           = Column(Boolean, default=True)
     show_page_number       = Column(Boolean, default=True)

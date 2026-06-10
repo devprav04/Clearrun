@@ -395,7 +395,7 @@ class StockTransactionCreate(BaseModel):
     notes: str = ''
 
 
-# ── Settings ──────────────────────────────────────────────────────────────────
+# Settings 
 class CompanySettingsOut(OrmBase):
     id: int
     company_name: str

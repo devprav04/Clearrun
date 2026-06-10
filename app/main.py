@@ -1,15 +1,26 @@
-from decouple import config
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+import logging
 import os
+import time
+import uuid
+
+from decouple import config
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, users, vendors, instruments, maintenance, inventory, reports, settings_router, pdf_reports
 
+# ── Logging setup ─────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s — %(message)s',
+)
+log = logging.getLogger('cleanrun')
+
 app = FastAPI(title='CleanRun IMMS', version='2.0.0', docs_url='/api/docs', redoc_url='/api/redoc')
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
+# ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -17,6 +28,23 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+# ── Request logging + unique request ID ──────────────────────────────────────
+@app.middleware('http')
+async def request_logging_middleware(request: Request, call_next):
+    rid = str(uuid.uuid4())[:8]
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed = round((time.perf_counter() - start) * 1000)
+    log.info('%s %s %s %dms req_id=%s', request.method, request.url.path, response.status_code, elapsed, rid)
+    response.headers['X-Request-ID'] = rid
+    return response
+
+# ── Global error handler — never expose stack traces to clients ───────────────
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    log.exception('Unhandled error on %s %s', request.method, request.url.path)
+    return JSONResponse(status_code=500, content={'detail': 'Internal server error.'})
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth.router)

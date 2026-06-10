@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import shutil
 import uuid
 from datetime import date
 
@@ -21,11 +20,15 @@ from decouple import config
 router = APIRouter(prefix='/api', tags=['instruments'])
 MEDIA_ROOT = config('MEDIA_ROOT', default='media')
 
+ALLOWED_IMPORT_EXTENSIONS = {'.xlsx', '.xls'}
+
 STATUS_LABELS = {
     'operational': 'Operational', 'calibrating': 'Calibrating',
     'broken_down': 'Broken Down', 'scheduled_maintenance': 'Under Scheduled Maintenance',
     'out_of_service': 'Out of Service',
 }
+
+VALID_STATUSES = set(STATUS_LABELS.keys())
 
 EXPORT_HEADERS = ['name', 'model', 'serial_number', 'manufacturer', 'location', 'status', 'installation_date', 'notes']
 
@@ -61,13 +64,14 @@ def list_instruments(
 @router.get('/instruments/next-code/')
 def next_instrument_code(inst_type: str = Query(...), db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     s = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
-    parts = []
     if s:
         parts = [s.company_code, s.department_code, s.sub_dept_code, inst_type.upper()]
     else:
         parts = [inst_type.upper()]
     prefix = '/'.join(p for p in parts if p)
-    existing = db.query(Instrument).filter(Instrument.manufacturer.op('~')(rf'^{re.escape(prefix)}/\d+$')).count()
+    # Query qr_code (where the generated code is stored), not manufacturer
+    pattern = rf'^{re.escape(prefix)}/\d+$'
+    existing = db.query(Instrument).filter(Instrument.qr_code.op('~')(pattern)).count()
     next_num = existing + 1
     code = f'{prefix}/{next_num}'
     return {'next_number': next_num, 'preview': code, 'code': code}
@@ -86,7 +90,7 @@ def export_instruments(db: Session = Depends(get_db), _: User = Depends(get_curr
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center')
         ws.column_dimensions[cell.column_letter].width = 20
-    for inst in db.query(Instrument).all():
+    for inst in db.query(Instrument).order_by(Instrument.name).all():
         ws.append([inst.name, inst.model, inst.serial_number, inst.manufacturer,
                    inst.location, inst.status,
                    str(inst.installation_date) if inst.installation_date else '',
@@ -108,42 +112,56 @@ def import_instruments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in ('manager', 'technician'):
+    if current_user.role not in ('manager', 'technician') and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail='Only managers and technicians can import instruments.')
+
+    # Validate file type by extension and content-type
+    ext = os.path.splitext(file.filename or '')[1].lower()
+    if ext not in ALLOWED_IMPORT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail='Only .xlsx and .xls files are accepted.')
+
     try:
         wb = openpyxl.load_workbook(file.file)
     except Exception:
-        raise HTTPException(status_code=400, detail='Invalid Excel file.')
+        raise HTTPException(status_code=400, detail='Invalid or corrupt Excel file.')
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
     if len(rows) < 2:
-        raise HTTPException(status_code=400, detail='No data rows found.')
+        raise HTTPException(status_code=400, detail='No data rows found in the file.')
 
     headers = [str(h).lower().replace(' ', '_') if h else '' for h in rows[0]]
     created = updated = errors = 0
     error_list = []
 
     for row_idx, row in enumerate(rows[1:], 2):
-        data = {headers[i]: (str(v).strip() if v is not None else '') for i, v in enumerate(row)}
+        data = {headers[i]: (str(v).strip() if v is not None else '') for i, v in enumerate(row) if i < len(headers)}
         serial = data.get('serial_number', '').strip()
-        name = data.get('name', '').strip()
+        name   = data.get('name', '').strip()
         if not serial or not name:
             errors += 1
             error_list.append(f'Row {row_idx}: missing name or serial_number')
             continue
+
+        status = data.get('status', 'operational').strip() or 'operational'
+        if status not in VALID_STATUSES:
+            status = 'operational'
+
         inst_data = {
-            'name': name, 'model': data.get('model', ''),
+            'name': name,
+            'model': data.get('model', ''),
             'manufacturer': data.get('manufacturer', ''),
-            'location': data.get('location', ''), 'notes': data.get('notes', ''),
-            'status': data.get('status', 'operational') or 'operational',
+            'location': data.get('location', ''),
+            'notes': data.get('notes', ''),
+            'status': status,
         }
-        raw_date = data.get('installation_date', '')
+        raw_date = data.get('installation_date', '').strip()
         if raw_date:
             try:
                 parts = raw_date.split('-')
                 inst_data['installation_date'] = date(int(parts[0]), int(parts[1]), int(parts[2]))
             except (ValueError, IndexError):
-                pass
+                pass  # leave installation_date unset; don't fail the row
+
         try:
             existing = db.query(Instrument).filter(Instrument.serial_number == serial).first()
             if existing:
@@ -190,6 +208,8 @@ def create_instrument(
 ):
     data = body.model_dump()
     serial = data['serial_number']
+    if db.query(Instrument).filter(Instrument.serial_number == serial).first():
+        raise HTTPException(status_code=400, detail=f'Serial number {serial!r} already exists.')
     data.setdefault('qr_code', f'CR-{serial}')
     inst = Instrument(**data)
     db.add(inst)
@@ -209,7 +229,16 @@ def update_instrument(
     inst = db.query(Instrument).filter(Instrument.id == instrument_id).first()
     if not inst:
         raise HTTPException(status_code=404, detail='Instrument not found.')
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    # Guard: don't let another instrument steal a serial_number
+    if 'serial_number' in updates:
+        collision = db.query(Instrument).filter(
+            Instrument.serial_number == updates['serial_number'],
+            Instrument.id != instrument_id,
+        ).first()
+        if collision:
+            raise HTTPException(status_code=400, detail=f'Serial number {updates["serial_number"]!r} already in use.')
+    for field, value in updates.items():
         setattr(inst, field, value)
     db.commit()
     db.refresh(inst)
