@@ -35,7 +35,9 @@ function BreakdownModal({ onClose, onSubmit }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200')
+      .then(r => setInstruments(r.data?.results || r.data || []))
+      .catch(() => setInstruments([]));
   }, []);
 
   const handleSubmit = async e => {

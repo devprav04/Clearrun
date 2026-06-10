@@ -192,15 +192,19 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    Promise.all([
-      api.get('reports/mttr/').catch(() => ({ data: [] })),
-      api.get('reports/downtime-cost/').catch(() => ({ data: [] })),
-      api.get('reports/audit/').catch(() => ({ data: [] })),
-    ]).then(([m, d, a]) => {
-      setMttr(m.data?.results || m.data || []);
-      setDowntime(d.data?.results || d.data || []);
-      setAudit(a.data?.results || a.data || []);
-    }).finally(() => setLoading(false));
+    (async () => {
+      try {
+        const [m, d, a] = await Promise.all([
+          api.get('reports/mttr/').catch(() => ({ data: [] })),
+          api.get('reports/downtime-cost/').catch(() => ({ data: [] })),
+          api.get('reports/audit/').catch(() => ({ data: [] })),
+        ]);
+        setMttr(m.data?.results || m.data || []);
+        setDowntime(d.data?.results || d.data || []);
+        setAudit(a.data?.results || a.data || []);
+      } catch { /* empty states already set */ }
+      finally { setLoading(false); }
+    })();
   }, []);
 
   if (loading) return (

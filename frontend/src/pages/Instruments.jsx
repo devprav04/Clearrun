@@ -273,15 +273,17 @@ export default function Instruments() {
   const [importing, setImporting] = useState(false);
   const importRef = useRef();
 
-  const fetchAll = () => {
+  const fetchAll = async () => {
     setLoading(true);
-    Promise.all([
-      api.get('instruments/?page_size=200'),
-      isAdmin ? api.get('vendors/?page_size=200') : Promise.resolve({ data: [] }),
-    ]).then(([instRes, vendorRes]) => {
+    try {
+      const [instRes, vendorRes] = await Promise.all([
+        api.get('instruments/?page_size=200'),
+        isAdmin ? api.get('vendors/?page_size=200') : Promise.resolve({ data: [] }),
+      ]);
       setInstruments(instRes.data?.results || instRes.data || []);
       setVendors(vendorRes.data?.results || vendorRes.data || []);
-    }).catch(() => {}).finally(() => setLoading(false));
+    } catch { setInstruments([]); setVendors([]); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchAll(); }, []);

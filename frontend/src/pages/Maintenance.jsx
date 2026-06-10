@@ -50,8 +50,8 @@ function TicketModal({ ticket, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
-    api.get('auth/users/').then(r => setUsers(r.data?.results || r.data || [])).catch(() => {});
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || [])).catch(() => setInstruments([]));
+    api.get('auth/users/').then(r => setUsers(r.data?.results || r.data || [])).catch(() => setUsers([]));
   }, []);
 
   const handleSubmit = async e => {
@@ -129,8 +129,8 @@ function AmcModal({ contract, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
-    api.get('vendors/?page_size=200').then(r => setVendors(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || [])).catch(() => setInstruments([]));
+    api.get('vendors/?page_size=200').then(r => setVendors(r.data?.results || r.data || [])).catch(() => setVendors([]));
   }, []);
 
   const handleSubmit = async e => {
@@ -208,7 +208,7 @@ function CalibrationModal({ record, onClose, onSuccess }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
-    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || []));
+    api.get('instruments/?page_size=200').then(r => setInstruments(r.data?.results || r.data || [])).catch(() => setInstruments([]));
   }, []);
 
   const handleSubmit = async e => {
