@@ -1,45 +1,27 @@
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
-export default function ConfirmDialog({ title, message, onConfirm, onCancel, danger = true }) {
+export default function ConfirmDialog({ title, message, onConfirm, onCancel, danger = true, confirmLabel = 'Confirm' }) {
   return (
-    <div className="overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div className="modal animate-slide-in" style={{ width: '100%', maxWidth: 400, padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: danger
-              ? 'color-mix(in srgb,var(--red) 12%,transparent)'
-              : 'color-mix(in srgb,var(--blue) 12%,transparent)',
-            border: `1px solid ${danger
-              ? 'color-mix(in srgb,var(--red) 25%,transparent)'
-              : 'color-mix(in srgb,var(--blue) 25%,transparent)'}`,
-          }}>
-            <AlertTriangle size={16} color={danger ? 'var(--red)' : 'var(--blue)'} />
+    <Dialog open onOpenChange={open => { if (!open) onCancel(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <div className="flex items-start gap-3">
+            <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center ${danger ? 'bg-destructive/10 border border-destructive/25' : 'bg-blue-500/10 border border-blue-500/25'}`}>
+              <AlertTriangle size={16} className={danger ? 'text-destructive' : 'text-blue-500'} />
+            </div>
+            <div>
+              <DialogTitle className="text-sm font-semibold">{title}</DialogTitle>
+              <DialogDescription className="text-xs mt-1">{message}</DialogDescription>
+            </div>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h3 className="t-title">{title}</h3>
-            <p className="t-body" style={{ marginTop: 4 }}>{message}</p>
-          </div>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer', padding: 2, flexShrink: 0 }}>
-            <X size={15} />
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onCancel} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
-          <button
-            onClick={onConfirm}
-            style={{
-              flex: 1, background: danger ? 'var(--red)' : 'var(--blue)', color: '#fff',
-              border: 'none', borderRadius: 'var(--r-md)', height: 34,
-              fontFamily: 'inherit', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" size="sm" onClick={onCancel} className="flex-1">Cancel</Button>
+          <Button variant={danger ? 'destructive' : 'default'} size="sm" onClick={onConfirm} className="flex-1">{confirmLabel}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

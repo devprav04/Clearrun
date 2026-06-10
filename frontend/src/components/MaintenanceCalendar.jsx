@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays, AlertTriangle, Clock, Wrench, TestTube, FileText } from 'lucide-react';
 import api from '../api/axios';
+import { Button } from '@/components/ui/button';
 
 const TYPE_META = {
   amc_expiry:      { icon: FileText,      color: 'var(--red)',    label: 'AMC Expiry'   },
@@ -66,16 +67,16 @@ export default function MaintenanceCalendar() {
               <CalendarDays size={15} color="var(--tx-3)" />
               {MONTH_NAMES[month]} {year}
             </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button onClick={() => setCurrent(new Date(year, month-1, 1))} className="btn btn-ghost btn-sm" style={{ padding: '0 8px' }}>
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" onClick={() => setCurrent(new Date(year, month-1, 1))} className="px-2 border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)]">
                 <ChevronLeft size={13} />
-              </button>
-              <button onClick={() => setCurrent(new Date(today.getFullYear(), today.getMonth(), 1))} className="btn btn-ghost btn-sm">
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrent(new Date(today.getFullYear(), today.getMonth(), 1))} className="border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)]">
                 Today
-              </button>
-              <button onClick={() => setCurrent(new Date(year, month+1, 1))} className="btn btn-ghost btn-sm" style={{ padding: '0 8px' }}>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrent(new Date(year, month+1, 1))} className="px-2 border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)]">
                 <ChevronRight size={13} />
-              </button>
+              </Button>
             </div>
           </div>
 

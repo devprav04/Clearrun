@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Edit2, X, Save, Shield, Wrench, User, Search, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Users, Plus, Trash2, Edit2, Shield, Wrench, User, Search, Lock, Save } from 'lucide-react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
-import StatusBadge from '../components/StatusBadge';
+import { useUsers, QK } from '../hooks/queries';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const ROLE_META = {
   manager:    { label: 'Manager / Admin', color: 'var(--purple)', Icon: Shield },
@@ -10,16 +19,24 @@ const ROLE_META = {
   employee:   { label: 'Lab Employee',    color: 'var(--green)',  Icon: User   },
 };
 
-const EMPTY_FORM = { username: '', email: '', first_name: '', last_name: '', role: 'employee', phone: '', department: '', employee_id: '', password: '' };
-const PERM_MODULES = [{ key: 'instruments', label: 'Instruments' }, { key: 'calibration', label: 'Calibration' }, { key: 'service', label: 'Service / Maintenance' }, { key: 'inventory', label: 'Inventory' }];
+const PERM_MODULES = [
+  { key: 'instruments', label: 'Instruments'         },
+  { key: 'calibration', label: 'Calibration'         },
+  { key: 'service',     label: 'Service/Maintenance' },
+  { key: 'inventory',   label: 'Inventory'           },
+];
 
-/* ─── Permissions Modal ─────────────────────────────────────────── */
+const inputCls  = 'h-9 bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] focus-visible:ring-[var(--brand)]';
+const selectCls = 'h-9 bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)]';
+
 function PermissionsModal({ user, onClose }) {
   const toast = useToast();
-  const [perms, setPerms] = useState(null);
+  const [perms,  setPerms]  = useState(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { api.get(`settings/permissions/${user.id}/`).then(r => setPerms(r.data)); }, [user.id]);
+  useState(() => {
+    api.get(`settings/permissions/${user.id}/`).then(r => setPerms(r.data));
+  });
 
   const toggle = key => setPerms(p => ({ ...p, [key]: !p[key] }));
 
@@ -33,274 +50,278 @@ function PermissionsModal({ user, onClose }) {
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username;
 
   return (
-    <div className="overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div className="modal animate-slide-in" style={{ width: '100%', maxWidth: 420, padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
-            <p className="t-title">Module Permissions</p>
-            <p className="t-small" style={{ marginTop: 2 }}>{fullName} · @{user.username}</p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer', padding: 4 }}><X size={15} /></button>
-        </div>
+    <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-sm bg-[var(--bg-2)] border-[var(--line-2)]">
+        <DialogHeader>
+          <DialogTitle className="text-[var(--tx-1)]">Module Permissions</DialogTitle>
+          <p className="t-small">{fullName} · @{user.username}</p>
+        </DialogHeader>
 
         {!perms ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-            <span style={{ width: 18, height: 18, border: '2px solid var(--line-2)', borderTopColor: 'var(--tx-2)', borderRadius: '50%' }} className="animate-spin" />
-          </div>
+          <div className="flex justify-center py-8"><span className="w-5 h-5 border-2 border-[var(--line-2)] border-t-[var(--tx-2)] rounded-full animate-spin" /></div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="flex flex-col gap-2">
             {PERM_MODULES.map(({ key, label }) => (
-              <div key={key} style={{ padding: '12px 14px', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 'var(--r-md)' }}>
-                <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--tx-1)', marginBottom: 10 }}>{label}</p>
-                <div style={{ display: 'flex', gap: 20 }}>
+              <div key={key} className="rounded-md px-3.5 py-3" style={{ background: 'var(--bg-3)', border: '1px solid var(--line)' }}>
+                <p className="text-sm font-medium text-[var(--tx-1)] mb-2.5">{label}</p>
+                <div className="flex gap-5">
                   {['view', 'edit'].map(action => {
-                    const permKey = `${key}_${action}`;
-                    const checked = perms[permKey] ?? false;
+                    const pk = `${key}_${action}`;
+                    const checked = perms[pk] ?? false;
                     return (
-                      <label key={action} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                        <input type="checkbox" checked={checked} onChange={() => toggle(permKey)} style={{ width: 13, height: 13, cursor: 'pointer', accentColor: 'var(--tx-1)' }} />
-                        <span style={{ fontSize: '0.8125rem', textTransform: 'capitalize', color: checked ? 'var(--tx-1)' : 'var(--tx-3)' }}>{action}</span>
+                      <label key={action} className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={checked} onChange={() => toggle(pk)} style={{ width: 13, height: 13, cursor: 'pointer', accentColor: 'var(--brand)' }} />
+                        <span className="text-xs capitalize" style={{ color: checked ? 'var(--tx-1)' : 'var(--tx-3)' }}>{action}</span>
                       </label>
                     );
                   })}
                 </div>
               </div>
             ))}
-            <div style={{ padding: '12px 14px', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--tx-1)' }}>Reports</p>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={perms.reports_view ?? false} onChange={() => toggle('reports_view')} style={{ width: 13, height: 13, cursor: 'pointer', accentColor: 'var(--tx-1)' }} />
-                <span style={{ fontSize: '0.8125rem', color: perms.reports_view ? 'var(--tx-1)' : 'var(--tx-3)' }}>View</span>
+            <div className="flex items-center justify-between rounded-md px-3.5 py-3" style={{ background: 'var(--bg-3)', border: '1px solid var(--line)' }}>
+              <p className="text-sm font-medium text-[var(--tx-1)]">Reports</p>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={perms.reports_view ?? false} onChange={() => toggle('reports_view')} style={{ width: 13, height: 13, cursor: 'pointer', accentColor: 'var(--brand)' }} />
+                <span className="text-xs" style={{ color: perms.reports_view ? 'var(--tx-1)' : 'var(--tx-3)' }}>View</span>
               </label>
             </div>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving || !perms} className="btn btn-primary" style={{ flex: 1 }}>
-            {saving ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'var(--accent-inv)', borderRadius: '50%' }} className="animate-spin" /> : <Save size={13} />}
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 border-[var(--line-2)] text-[var(--tx-2)]">Cancel</Button>
+          <Button onClick={handleSave} disabled={saving || !perms} className="flex-1 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+            {saving ? <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Save size={13} />}
             Save Permissions
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/* ─── User Modal ────────────────────────────────────────────────── */
-function UserModal({ user, onClose, onSaved }) {
-  const toast = useToast();
-  const isEdit = Boolean(user);
-  const [form, setForm] = useState(isEdit ? { ...EMPTY_FORM, ...user, password: '' } : EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+const userSchema = z.object({
+  username:    z.string().min(1, 'Required'),
+  email:       z.string().email('Invalid email').optional().or(z.literal('')),
+  first_name:  z.string().optional(),
+  last_name:   z.string().optional(),
+  role:        z.enum(['employee', 'technician', 'manager']),
+  phone:       z.string().optional(),
+  employee_id: z.string().optional(),
+  department:  z.string().optional(),
+  password:    z.string().optional(),
+});
 
-  const handleSubmit = async e => {
-    e.preventDefault(); setSaving(true);
+function UserModal({ user, onClose, onSaved }) {
+  const toast  = useToast();
+  const isEdit = Boolean(user);
+
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(userSchema),
+    defaultValues: {
+      username:    user?.username    || '',
+      email:       user?.email       || '',
+      first_name:  user?.first_name  || '',
+      last_name:   user?.last_name   || '',
+      role:        user?.role        || 'employee',
+      phone:       user?.phone       || '',
+      employee_id: user?.employee_id || '',
+      department:  user?.department  || '',
+      password:    '',
+    },
+  });
+
+  const onSave = async (data) => {
     try {
-      const payload = { ...form };
+      const payload = { ...data };
       if (!payload.password) delete payload.password;
       if (isEdit) await api.patch(`auth/users/${user.id}/`, payload);
-      else await api.post('auth/users/', payload);
+      else        await api.post('auth/users/', payload);
       toast(isEdit ? 'User updated.' : 'User created.', 'success');
       onSaved(); onClose();
     } catch (err) {
-      const data = err.response?.data;
-      const msg = data ? Object.values(data).flat().join(' ') : 'Failed to save user.';
-      toast(msg, 'error');
-    } finally { setSaving(false); }
+      const d = err.response?.data;
+      toast(d ? Object.values(d).flat().join(' ') : 'Failed to save user.', 'error');
+    }
   };
 
   return (
-    <div className="overlay" style={{ overflowY: 'auto', alignItems: 'flex-start', paddingTop: 32 }}>
-      <div className="modal animate-slide-in" style={{ maxWidth: 480, padding: 24, marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <span className="t-title">{isEdit ? 'Edit User' : 'Add New User'}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tx-3)', cursor: 'pointer', padding: 4 }}><X size={15} /></button>
-        </div>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-[480px] bg-[var(--bg-2)] border-[var(--line-2)] max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle className="text-[var(--tx-1)]">{isEdit ? 'Edit User' : 'Add New User'}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSave)} className="flex flex-col gap-3">
           <div className="grid-form">
-            {[['first_name','First Name'],['last_name','Last Name']].map(([k,l]) => (
-              <div key={k}>
-                <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{l}</label>
-                <input value={form[k]} onChange={set(k)} className="input" placeholder={l} />
+            {[['first_name', 'First Name'], ['last_name', 'Last Name']].map(([k, l]) => (
+              <div key={k} className="flex flex-col gap-1.5">
+                <Label className="t-label">{l}</Label>
+                <Input {...register(k)} placeholder={l} className={inputCls} />
               </div>
             ))}
           </div>
-          {[
-            { key: 'username', label: 'Username *', required: true, placeholder: 'username' },
-            { key: 'email', label: 'Email', type: 'email', placeholder: 'email@lab.com' },
-          ].map(({ key, label, type, required, placeholder }) => (
-            <div key={key}>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{label}</label>
-              <input type={type||'text'} required={required} value={form[key]} onChange={set(key)} className="input" placeholder={placeholder} />
-            </div>
-          ))}
-          <div>
-            <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Role *</label>
-            <select required value={form.role} onChange={set('role')} className="input">
-              <option value="employee">Lab Employee</option>
-              <option value="technician">Maintenance Technician</option>
-              <option value="manager">Manager / Admin</option>
-            </select>
+          <div className="flex flex-col gap-1.5">
+            <Label className="t-label">Username *</Label>
+            <Input {...register('username')} placeholder="username" className={inputCls} />
+            {errors.username && <p className="text-xs text-destructive">{errors.username.message}</p>}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="t-label">Email</Label>
+            <Input {...register('email')} type="email" placeholder="email@lab.com" className={inputCls} />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="t-label">Role *</Label>
+            <Controller name="role" control={control} render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+                  <SelectItem value="employee">Lab Employee</SelectItem>
+                  <SelectItem value="technician">Maintenance Technician</SelectItem>
+                  <SelectItem value="manager">Manager / Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            )} />
           </div>
           <div className="grid-form">
-            <div>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Phone</label>
-              <input value={form.phone} onChange={set('phone')} className="input" placeholder="+91 …" />
+            <div className="flex flex-col gap-1.5">
+              <Label className="t-label">Phone</Label>
+              <Input {...register('phone')} placeholder="+91 …" className={inputCls} />
             </div>
-            <div>
-              <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Employee ID</label>
-              <input value={form.employee_id} onChange={set('employee_id')} className="input" placeholder="EMP-001" />
+            <div className="flex flex-col gap-1.5">
+              <Label className="t-label">Employee ID</Label>
+              <Input {...register('employee_id')} placeholder="EMP-001" className={inputCls} />
             </div>
           </div>
-          <div>
-            <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>Department</label>
-            <input value={form.department} onChange={set('department')} className="input" placeholder="QC Laboratory" />
+          <div className="flex flex-col gap-1.5">
+            <Label className="t-label">Department</Label>
+            <Input {...register('department')} placeholder="QC Laboratory" className={inputCls} />
           </div>
-          <div>
-            <label className="t-label" style={{ display: 'block', marginBottom: 6 }}>{isEdit ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-            <input type="password" value={form.password} onChange={set('password')} required={!isEdit} className="input" placeholder={isEdit ? 'Leave blank to keep' : 'Min. 8 characters'} />
+          <div className="flex flex-col gap-1.5">
+            <Label className="t-label">{isEdit ? 'New Password (leave blank to keep)' : 'Password *'}</Label>
+            <Input {...register('password')} type="password" placeholder={isEdit ? 'Leave blank to keep' : 'Min. 8 characters'} className={inputCls} />
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
-            <button type="submit" disabled={saving} className="btn btn-primary" style={{ flex: 1 }}>
-              {saving ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'var(--accent-inv)', borderRadius: '50%' }} className="animate-spin" /> : <Save size={13} />}
+          <DialogFooter className="gap-2 sm:gap-2 mt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 border-[var(--line-2)] text-[var(--tx-2)]">Cancel</Button>
+            <Button type="submit" disabled={isSubmitting} className="flex-1 bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+              {isSubmitting && <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
               {isEdit ? 'Save Changes' : 'Create User'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/* ─── Main ──────────────────────────────────────────────────────── */
 export default function UserManagement() {
   const toast = useToast();
-  const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [modal, setModal] = useState(null);
-  const [permUser, setPermUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const qc    = useQueryClient();
+  const [search,     setSearch]     = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [modal,      setModal]      = useState(null);
+  const [permUser,   setPermUser]   = useState(null);
 
-  const fetchUsers = () => {
-    setLoading(true);
-    api.get('auth/users/').then(r => setUsers(r.data?.results || r.data || [])).finally(() => setLoading(false));
-  };
-  useEffect(() => { fetchUsers(); }, []);
+  const { data: users = [], isLoading } = useUsers();
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: QK.users });
 
   const handleDelete = async u => {
     if (!window.confirm(`Delete user "${u.username}"? This cannot be undone.`)) return;
-    try { await api.delete(`auth/users/${u.id}/`); toast(`User ${u.username} deleted.`, 'success'); fetchUsers(); }
+    try { await api.delete(`auth/users/${u.id}/`); toast(`User ${u.username} deleted.`, 'success'); invalidate(); }
     catch (err) { toast(err.response?.data?.detail || 'Failed to delete user.', 'error'); }
   };
 
   const filtered = users.filter(u => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || u.username?.toLowerCase().includes(q) || u.first_name?.toLowerCase().includes(q) || u.last_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.employee_id?.toLowerCase().includes(q);
-    const matchRole = !roleFilter || u.role === roleFilter;
-    return matchSearch && matchRole;
+    const q   = search.toLowerCase();
+    const hit = !q || u.username?.toLowerCase().includes(q) || u.first_name?.toLowerCase().includes(q) || u.last_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.employee_id?.toLowerCase().includes(q);
+    return hit && (roleFilter === 'all' || u.role === roleFilter);
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }} className="page-enter">
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+    <div className="flex flex-col gap-5 page-enter">
+      <div className="page-header">
         <div>
           <h1 className="t-heading">User Management</h1>
-          <p className="t-body" style={{ marginTop: 2 }}>Add, edit, and manage lab staff access</p>
+          <p className="t-body mt-0.5">Add, edit, and manage lab staff access</p>
         </div>
-        <button onClick={() => setModal('add')} className="btn btn-primary"><Plus size={13} />Add User</button>
+        <Button onClick={() => setModal('add')} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+          <Plus size={13} />Add User
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-          <Search size={14} color="var(--tx-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, username, email, ID…"
-            className="input" style={{ paddingLeft: 32 }} />
+      <div className="flex gap-2.5 flex-wrap">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={14} color="var(--tx-3)" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, username, email, ID…"
+            className={`h-9 bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] pl-8`} />
         </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="input" style={{ width: 'auto', minWidth: 120 }}>
-          <option value="">All Roles</option>
-          <option value="employee">Lab Employee</option>
-          <option value="technician">Technician</option>
-          <option value="manager">Manager</option>
-        </select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="h-9 w-auto min-w-[120px] bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="employee">Lab Employee</SelectItem>
+            <SelectItem value="technician">Technician</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Role summary */}
       <div className="grid-3">
         {Object.entries(ROLE_META).map(([role, meta]) => {
           const count = users.filter(u => u.role === role).length;
           return (
-            <div key={role} className="surface" style={{ padding: '14px 16px', textAlign: 'center' }}>
-              <p style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.04em', color: meta.color }}>{count}</p>
-              <p className="t-small" style={{ marginTop: 2 }}>{meta.label}</p>
+            <div key={role} className="surface text-center" style={{ padding: '14px 16px' }}>
+              <p className="text-[1.75rem] font-extrabold leading-none" style={{ letterSpacing: '-0.04em', color: meta.color }}>{count}</p>
+              <p className="t-small mt-1">{meta.label}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Table */}
-      <div className="surface" style={{ overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-            <span style={{ width: 20, height: 20, border: '2px solid var(--line-2)', borderTopColor: 'var(--tx-2)', borderRadius: '50%' }} className="animate-spin" />
-          </div>
+      <div className="surface overflow-hidden">
+        {isLoading ? (
+          <div className="flex justify-center py-12"><span className="w-5 h-5 border-2 border-[var(--line-2)] border-t-[var(--tx-2)] rounded-full animate-spin" /></div>
         ) : filtered.length === 0 ? (
-          <p className="t-body" style={{ textAlign: 'center', padding: '48px 0' }}>No users found.</p>
+          <p className="t-body text-center py-12">No users found.</p>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr>
-                  <th>User</th><th>Role</th>
-                  <th>Contact</th><th>Department</th><th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
+                <tr><th>User</th><th>Role</th><th>Contact</th><th>Department</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
               </thead>
               <tbody>
                 {filtered.map(u => {
-                  const meta = ROLE_META[u.role] || ROLE_META.employee;
-                  const Icon = meta.Icon;
+                  const meta     = ROLE_META[u.role] || ROLE_META.employee;
+                  const Icon     = meta.Icon;
                   const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ');
                   const initials = fullName ? `${u.first_name?.[0]}${u.last_name?.[0]}`.toUpperCase() : u.username[0].toUpperCase();
                   return (
                     <tr key={u.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>
-                            {initials}
-                          </div>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white" style={{ background: meta.color }}>{initials}</div>
                           <div>
-                            <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--tx-1)' }}>{fullName || u.username}</p>
+                            <p className="text-sm font-medium text-[var(--tx-1)]">{fullName || u.username}</p>
                             <p className="t-small">@{u.username}{u.employee_id ? ` · ${u.employee_id}` : ''}</p>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px',
-                          borderRadius: 'var(--r-sm)', fontSize: '0.7rem', fontWeight: 600,
-                          color: meta.color, background: `color-mix(in srgb,${meta.color} 10%,transparent)`,
-                          border: `1px solid color-mix(in srgb,${meta.color} 25%,transparent)`,
-                          textTransform: 'uppercase', letterSpacing: '0.04em',
-                        }}>
-                          <Icon size={10} />
-                          {meta.label}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[0.7rem] font-semibold uppercase tracking-wide" style={{ color: meta.color, background: `color-mix(in srgb,${meta.color} 10%,transparent)`, border: `1px solid color-mix(in srgb,${meta.color} 25%,transparent)` }}>
+                          <Icon size={10} />{meta.label}
                         </span>
                       </td>
                       <td>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--tx-2)' }}>{u.email || '—'}</p>
+                        <p className="text-sm text-[var(--tx-2)]">{u.email || '—'}</p>
                         <p className="t-small">{u.phone || ''}</p>
                       </td>
-                      <td style={{ color: 'var(--tx-2)' }}>{u.department || '—'}</td>
+                      <td className="text-[var(--tx-2)]">{u.department || '—'}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                          <button onClick={() => setPermUser(u)} className="btn btn-ghost btn-sm" style={{ padding: '0 8px' }} title="Permissions"><Lock size={12} /></button>
-                          <button onClick={() => setModal(u)} className="btn btn-ghost btn-sm" style={{ padding: '0 8px' }} title="Edit"><Edit2 size={12} /></button>
-                          <button onClick={() => handleDelete(u)} className="btn btn-danger btn-sm" style={{ padding: '0 8px' }} title="Delete"><Trash2 size={12} /></button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button variant="outline" size="sm" onClick={() => setPermUser(u)} className="px-2 border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)]" title="Permissions"><Lock size={12} /></Button>
+                          <Button variant="outline" size="sm" onClick={() => setModal(u)} className="px-2 border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)]" title="Edit"><Edit2 size={12} /></Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDelete(u)} className="px-2 border-destructive/30 text-destructive hover:bg-destructive/10" title="Delete"><Trash2 size={12} /></Button>
                         </div>
                       </td>
                     </tr>
@@ -312,7 +333,7 @@ export default function UserManagement() {
         )}
       </div>
 
-      {modal && <UserModal user={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSaved={fetchUsers} />}
+      {modal && <UserModal user={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSaved={invalidate} />}
       {permUser && <PermissionsModal user={permUser} onClose={() => setPermUser(null)} />}
     </div>
   );

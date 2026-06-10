@@ -7,6 +7,7 @@ import {
 import api from '../api/axios';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
 
 const TABS = [
   { id: 'overview',     label: 'Overview',            icon: Info      },
@@ -64,9 +65,9 @@ export default function InstrumentDetail() {
     <div className="empty-state" style={{ paddingTop: 80 }}>
       <div className="empty-state-icon"><FlaskConical size={22} color="var(--tx-3)" /></div>
       <p className="t-body">Instrument not found</p>
-      <button onClick={() => navigate('/instruments')} className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>
+      <Button variant="outline" size="sm" onClick={() => navigate('/instruments')} className="mt-2 border-[var(--line-2)] text-[var(--tx-2)]">
         <ArrowLeft size={13} /> Back to Instruments
-      </button>
+      </Button>
     </div>
   );
 
@@ -75,15 +76,9 @@ export default function InstrumentDetail() {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => navigate('/instruments')} style={{
-          width: 32, height: 32, borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: '1px solid var(--line)', color: 'var(--tx-3)', cursor: 'pointer',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-3)'; e.currentTarget.style.color = 'var(--tx-1)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--tx-3)'; }}
-        >
+        <Button variant="outline" size="icon" onClick={() => navigate('/instruments')} className="w-8 h-8 border-[var(--line)] text-[var(--tx-3)] hover:bg-[var(--bg-3)] hover:text-[var(--tx-1)]">
           <ArrowLeft size={15} />
-        </button>
+        </Button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 className="t-heading">{instrument.name}</h1>

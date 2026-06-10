@@ -119,7 +119,7 @@ export default function Layout({ children }) {
           <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', gap: 3, fontSize: '0.6rem', fontWeight: 500,
-            color: isActive ? 'var(--accent)' : 'var(--tx-3)', textDecoration: 'none',
+            color: isActive ? 'var(--brand)' : 'var(--tx-3)', textDecoration: 'none',
           })}>
             {({ isActive }) => <>
               <Icon size={18} strokeWidth={isActive ? 2.2 : 1.7} />

@@ -1,300 +1,293 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FlaskConical, MapPin, Tag, ChevronRight, Plus, Pencil, Trash2, X, Upload, Download, CalendarCheck, Wand2, RefreshCw, Hash, Building2, Settings2, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, FlaskConical, MapPin, Plus, Pencil, Trash2, Upload, Download, CalendarCheck, Wand2, RefreshCw, Hash, Building2, Settings2, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import StatusBadge from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useInstruments, useVendors, QK } from '../hooks/queries';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const STATUS_OPTIONS = ['operational', 'calibrating', 'broken_down', 'scheduled_maintenance', 'out_of_service'];
 const STATUS_META = {
-  operational:            { color: 'var(--green)',  label: 'Operational' },
-  calibrating:            { color: 'var(--blue)',   label: 'Calibrating' },
-  broken_down:            { color: 'var(--red)',    label: 'Broken Down' },
-  scheduled_maintenance:  { color: 'var(--orange)', label: 'Scheduled Maintenance' },
-  out_of_service:         { color: 'var(--tx-3)',   label: 'Out of Service' },
+  operational:           { color: 'var(--green)',  label: 'Operational'            },
+  calibrating:           { color: 'var(--blue)',   label: 'Calibrating'            },
+  broken_down:           { color: 'var(--red)',    label: 'Broken Down'            },
+  scheduled_maintenance: { color: 'var(--orange)', label: 'Scheduled Maintenance'  },
+  out_of_service:        { color: 'var(--tx-3)',   label: 'Out of Service'         },
 };
 
-/* ── Labelled field wrapper ─────────────────────────────── */
-function F({ label, children, span2, hint }) {
+const inputCls    = 'h-9 bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] focus-visible:ring-[var(--brand)]';
+const selectCls   = 'h-9 bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)]';
+const textareaCls = 'bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] focus-visible:ring-[var(--brand)] resize-vertical';
+
+function FF({ label, span2, hint, children, error }) {
   return (
     <div style={span2 ? { gridColumn: 'span 2' } : {}}>
-      <label style={{ display: 'block', marginBottom: 5, fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tx-3)' }}>
-        {label}
-      </label>
+      <Label className="t-label mb-1.5 block">{label}</Label>
       {children}
-      {hint && <p style={{ marginTop: 4, fontSize: '0.6875rem', color: 'var(--tx-3)' }}>{hint}</p>}
+      {hint  && <p className="text-[0.6875rem] text-[var(--tx-3)] mt-1">{hint}</p>}
+      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   );
 }
 
-/* ── Section divider ────────────────────────────────────── */
 function Divider({ icon: Icon, label }) {
   return (
-    <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 2px', borderTop: '1px solid var(--line)', marginTop: 4 }}>
-      <Icon size={12} color="var(--accent)" />
-      <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent)' }}>{label}</span>
+    <div className="flex items-center gap-2 py-1" style={{ gridColumn: 'span 2', borderTop: '1px solid var(--line)', marginTop: 4 }}>
+      <Icon size={12} color="var(--brand)" />
+      <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--brand)' }}>{label}</span>
     </div>
   );
 }
+
+const instrumentSchema = z.object({
+  name:              z.string().min(1, 'Required'),
+  model:             z.string().min(1, 'Required'),
+  serial_number:     z.string().min(1, 'Required'),
+  location:          z.string().min(1, 'Required'),
+  manufacturer:      z.string().optional(),
+  installation_date: z.string().optional(),
+  status:            z.string(),
+  vendor:            z.union([z.string(), z.number()]).optional().transform(v => v || ''),
+  notes:             z.string().optional(),
+});
 
 function InstrumentModal({ instrument, vendors, onClose, onSuccess }) {
   const editing = Boolean(instrument);
-  const [form, setForm] = useState({
-    name: instrument?.name || '', model: instrument?.model || '',
-    serial_number: instrument?.serial_number || '', manufacturer: instrument?.manufacturer || '',
-    installation_date: instrument?.installation_date || '', location: instrument?.location || '',
-    status: instrument?.status || 'operational', vendor: instrument?.vendor || '', notes: instrument?.notes || '',
-  });
-  const [instType, setInstType] = useState('');
+  const toast   = useToast();
+
+  const [instType,    setInstType]    = useState('');
   const [codePreview, setCodePreview] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
-  const [addCal, setAddCal] = useState(false);
-  const [calForm, setCalForm] = useState({ calibration_date: '', next_due_date: '', calibrated_by_vendor: '', notes: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [addCal,      setAddCal]      = useState(false);
+  const [calForm,     setCalForm]     = useState({ calibration_date: '', next_due_date: '', calibrated_by_vendor: '', notes: '' });
 
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
-  const setCal = k => e => setCalForm(f => ({ ...f, [k]: e.target.value }));
+  const { register, handleSubmit, control, watch, setValue, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(instrumentSchema),
+    defaultValues: {
+      name:              instrument?.name              || '',
+      model:             instrument?.model             || '',
+      serial_number:     instrument?.serial_number     || '',
+      manufacturer:      instrument?.manufacturer      || '',
+      installation_date: instrument?.installation_date || '',
+      location:          instrument?.location          || '',
+      status:            instrument?.status            || 'operational',
+      vendor:            instrument?.vendor ? String(instrument.vendor) : '',
+      notes:             instrument?.notes             || '',
+    },
+  });
+
+  const status     = watch('status');
+  const statusMeta = STATUS_META[status] || {};
 
   const fetchNextCode = useCallback(async (type) => {
     if (!type) { setCodePreview(''); return; }
     setCodeLoading(true);
-    try {
-      const res = await api.get(`instruments/next-code/?type=${encodeURIComponent(type)}`);
-      setCodePreview(res.data.code);
-    } catch { setCodePreview(''); }
+    try { const res = await api.get(`instruments/next-code/?type=${encodeURIComponent(type)}`); setCodePreview(res.data.code); }
+    catch { setCodePreview(''); }
     finally { setCodeLoading(false); }
   }, []);
 
-  useEffect(() => {
-    if (!editing) fetchNextCode(instType);
-  }, [instType, editing, fetchNextCode]);
-
-  const applyGeneratedCode = () => {
-    if (codePreview) setForm(f => ({ ...f, manufacturer: codePreview }));
-  };
-
-  const handleSubmit = async e => {
-    e.preventDefault(); setLoading(true); setError('');
+  const onSave = async (data) => {
     try {
       let instrId = instrument?.id;
-      if (editing) { await api.patch(`instruments/${instrId}/`, form); }
+      if (editing) { await api.patch(`instruments/${instrId}/`, data); }
       else {
-        const res = await api.post('instruments/', form);
+        const res = await api.post('instruments/', data);
         instrId = res.data.id;
       }
       if (!editing && addCal && calForm.calibration_date && calForm.next_due_date) {
         await api.post('maintenance/calibration/', { instrument: instrId, ...calForm, calibrated_by_vendor: calForm.calibrated_by_vendor || null, status: 'valid' });
       }
+      toast(editing ? 'Instrument updated.' : 'Instrument added.', 'success');
       onSuccess(); onClose();
     } catch (err) {
-      const data = err.response?.data;
-      setError(data ? (typeof data === 'object' ? Object.values(data).flat().join(' ') : String(data)) : 'Failed to save instrument.');
-    } finally { setLoading(false); }
+      const d = err.response?.data;
+      toast(d ? (typeof d === 'object' ? Object.values(d).flat().join(' ') : String(d)) : 'Failed to save instrument.', 'error');
+    }
   };
 
-  const statusMeta = STATUS_META[form.status] || {};
+  const setCal = k => e => setCalForm(f => ({ ...f, [k]: e.target.value }));
 
   return (
-    <div className="overlay" style={{ alignItems: 'flex-start', padding: '28px 16px', overflowY: 'auto' }}>
-      <div className="modal animate-slide-in" style={{ width: '100%', maxWidth: 660, padding: 0, marginBottom: 32 }}>
-
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: '1px solid var(--line)', background: 'var(--bg-2)', borderRadius: 'var(--r-xl) var(--r-xl) 0 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'color-mix(in srgb,var(--accent) 12%,transparent)', border: '1px solid color-mix(in srgb,var(--accent) 25%,transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FlaskConical size={17} color="var(--accent)" />
+    <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-[660px] bg-[var(--bg-2)] border-[var(--line-2)] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b border-[var(--line)] flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'color-mix(in srgb,var(--brand) 12%,transparent)', border: '1px solid color-mix(in srgb,var(--brand) 25%,transparent)' }}>
+              <FlaskConical size={17} color="var(--brand)" />
             </div>
             <div>
-              <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--tx-1)', lineHeight: 1.2 }}>{editing ? 'Edit Instrument' : 'Add Instrument'}</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--tx-3)', marginTop: 1 }}>{editing ? `Editing: ${instrument.name}` : 'Fill in the details below to register a new instrument'}</p>
+              <DialogTitle className="text-[var(--tx-1)]">{editing ? 'Edit Instrument' : 'Add Instrument'}</DialogTitle>
+              <p className="t-small mt-0.5">{editing ? `Editing: ${instrument.name}` : 'Fill in the details to register a new instrument'}</p>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-3)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', cursor: 'pointer', color: 'var(--tx-3)' }}><X size={14} /></button>
-        </div>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-
-          {/* Error banner */}
-          {error && (
-            <div style={{ padding: '10px 14px', background: 'color-mix(in srgb,var(--red) 8%,transparent)', border: '1px solid color-mix(in srgb,var(--red) 25%,transparent)', borderRadius: 'var(--r-md)', marginBottom: 16 }}>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--red)' }}>{error}</p>
-            </div>
-          )}
-
-          <div className="grid-form" style={{ gap: 14 }}>
-            {/* ── Basic Info ── */}
+        <form onSubmit={handleSubmit(onSave)} className="overflow-y-auto px-6 py-4 flex flex-col gap-0">
+          <div className="grid-form gap-3.5">
             <Divider icon={FlaskConical} label="Basic Information" />
+            <FF label="Instrument Name *" error={errors.name?.message}>
+              <Input {...register('name')} placeholder="e.g. Gas Chromatograph" className={inputCls} />
+            </FF>
+            <FF label="Model *" error={errors.model?.message}>
+              <Input {...register('model')} placeholder="e.g. Agilent 7890A" className={inputCls} />
+            </FF>
+            <FF label="Serial Number *" error={errors.serial_number?.message}>
+              <Input {...register('serial_number')} placeholder="Unique serial number" className={`${inputCls} font-mono`} />
+            </FF>
+            <FF label="Location / Room *" error={errors.location?.message}>
+              <Input {...register('location')} placeholder="e.g. Lab Room A" className={inputCls} />
+            </FF>
 
-            <F label="Instrument Name *">
-              <input required placeholder="e.g. Gas Chromatograph" value={form.name} onChange={set('name')} className="input" />
-            </F>
-            <F label="Model *">
-              <input required placeholder="e.g. Agilent 7890A" value={form.model} onChange={set('model')} className="input" />
-            </F>
-            <F label="Serial Number *">
-              <input required placeholder="Unique serial number" value={form.serial_number} onChange={set('serial_number')} className="input t-mono" />
-            </F>
-            <F label="Location / Room *">
-              <input required placeholder="e.g. Lab Room A" value={form.location} onChange={set('location')} className="input" />
-            </F>
-
-            {/* ── Identification ── */}
             <Divider icon={Hash} label="Identification & Coding" />
 
             {!editing && (
-              <F label="Instrument Type Abbreviation" hint="2–6 letter abbreviation used to auto-generate the equipment code">
-                <input value={instType} onChange={e => setInstType(e.target.value.toUpperCase())} className="input t-mono" placeholder="e.g. UVF, GC, HPLC" maxLength={10} />
-              </F>
+              <FF label="Instrument Type Abbreviation" hint="2–6 letter abbreviation used to auto-generate the equipment code">
+                <Input value={instType} onChange={e => { const v = e.target.value.toUpperCase(); setInstType(v); fetchNextCode(v); }} placeholder="e.g. UVF, GC, HPLC" maxLength={10} className={`${inputCls} font-mono`} />
+              </FF>
             )}
 
-            <F label="Equipment Code / Tag" span2={editing}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input
-                  placeholder={!editing && instType ? 'Will auto-generate after typing type above' : 'e.g. CPCL/MAN/QC/UVF/1'}
-                  value={form.manufacturer}
-                  onChange={set('manufacturer')}
-                  className="input t-mono"
-                  style={{ flex: 1 }}
-                />
+            <FF label="Equipment Code / Tag" span2={editing}>
+              <div className="flex gap-1.5">
+                <Input {...register('manufacturer')} placeholder={!editing && instType ? 'Will auto-generate after typing type above' : 'e.g. CPCL/MAN/QC/UVF/1'} className={`${inputCls} font-mono flex-1`} />
                 {!editing && codePreview && (
-                  <button type="button" onClick={applyGeneratedCode} className="btn btn-ghost btn-sm" title={`Apply: ${codePreview}`} style={{ flexShrink: 0, padding: '0 12px', gap: 5 }}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setValue('manufacturer', codePreview)} title={`Apply: ${codePreview}`} className="flex-shrink-0 border-[var(--line-2)] text-[var(--tx-2)]">
                     {codeLoading ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
                     Apply
-                  </button>
+                  </Button>
                 )}
               </div>
               {!editing && codePreview && (
-                <div style={{ marginTop: 6, padding: '6px 10px', background: 'color-mix(in srgb,var(--accent) 6%,transparent)', border: '1px solid color-mix(in srgb,var(--accent) 18%,transparent)', borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--tx-2)' }}>Suggested code:</span>
-                  <button type="button" onClick={applyGeneratedCode} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700 }}>
+                <div className="mt-1.5 flex items-center justify-between rounded px-2.5 py-1.5" style={{ background: 'color-mix(in srgb,var(--brand) 6%,transparent)', border: '1px solid color-mix(in srgb,var(--brand) 18%,transparent)' }}>
+                  <span className="text-xs text-[var(--tx-2)]">Suggested code:</span>
+                  <button type="button" onClick={() => setValue('manufacturer', codePreview)} className="font-mono text-[0.8125rem] font-bold" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', padding: 0 }}>
                     {codeLoading ? '…' : codePreview}
                   </button>
                 </div>
               )}
-            </F>
+            </FF>
 
-            {/* ── Status & Assignment ── */}
             <Divider icon={Settings2} label="Status & Assignment" />
 
-            <F label="Installation Date">
-              <input type="date" value={form.installation_date} onChange={set('installation_date')} className="input" />
-            </F>
-            <F label="Status">
-              <div style={{ position: 'relative' }}>
-                <select value={form.status} onChange={set('status')} className="input" style={{ paddingLeft: 34 }}>
-                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>)}
-                </select>
-                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: statusMeta.color, pointerEvents: 'none', flexShrink: 0 }} />
-              </div>
-            </F>
-            <F label="Vendor / Supplier" span2>
-              <select value={form.vendor} onChange={set('vendor')} className="input">
-                <option value="">— No Vendor —</option>
-                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-              </select>
-            </F>
+            <FF label="Installation Date">
+              <Input {...register('installation_date')} type="date" className={inputCls} />
+            </FF>
+            <FF label="Status">
+              <Controller name="status" control={control} render={({ field }) => (
+                <div className="relative">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={`${selectCls} pl-8`}><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+                      {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{STATUS_META[s]?.label || s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full pointer-events-none" style={{ background: statusMeta.color }} />
+                </div>
+              )} />
+            </FF>
+            <FF label="Vendor / Supplier" span2>
+              <Controller name="vendor" control={control} render={({ field }) => (
+                <Select value={field.value || 'none'} onValueChange={v => field.onChange(v === 'none' ? '' : v)}>
+                  <SelectTrigger className={selectCls}><SelectValue placeholder="— No Vendor —" /></SelectTrigger>
+                  <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+                    <SelectItem value="none">— No Vendor —</SelectItem>
+                    {vendors.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )} />
+            </FF>
 
-            {/* ── Notes ── */}
             <Divider icon={StickyNote} label="Notes" />
-            <F label="Internal Notes" span2>
-              <textarea rows={3} value={form.notes} onChange={set('notes')} className="input" style={{ resize: 'vertical' }} placeholder="Observations, special requirements, history…" />
-            </F>
+            <FF label="Internal Notes" span2>
+              <Textarea {...register('notes')} rows={3} placeholder="Observations, special requirements, history…" className={textareaCls} />
+            </FF>
           </div>
 
-          {/* ── Calibration accordion ── */}
           {!editing && (
-            <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden', marginTop: 18 }}>
-              <button type="button" onClick={() => setAddCal(v => !v)} style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', background: addCal ? 'color-mix(in srgb,var(--blue) 6%,transparent)' : 'var(--bg-3)',
-                border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'background .15s',
-              }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', fontWeight: 600, color: addCal ? 'var(--blue)' : 'var(--tx-2)' }}>
+            <div className="mt-5 rounded-md overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+              <button type="button" onClick={() => setAddCal(v => !v)} className="w-full flex items-center justify-between px-4 py-3 transition-colors" style={{ background: addCal ? 'color-mix(in srgb,var(--blue) 6%,transparent)' : 'var(--bg-3)', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: addCal ? 'var(--blue)' : 'var(--tx-2)' }}>
                   <CalendarCheck size={14} color={addCal ? 'var(--blue)' : 'var(--tx-3)'} />
                   Add Initial Calibration Record
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 400, color: 'var(--tx-3)', fontStyle: 'italic' }}>optional</span>
+                  <span className="text-[0.6875rem] font-normal text-[var(--tx-3)] italic">optional</span>
                 </span>
                 {addCal ? <ChevronUp size={14} color="var(--blue)" /> : <ChevronDown size={14} color="var(--tx-3)" />}
               </button>
               {addCal && (
-                <div className="grid-form" style={{ padding: '16px', background: 'color-mix(in srgb,var(--blue) 3%,var(--bg-3))', borderTop: '1px solid var(--line)', gap: 12 }}>
-                  <F label="Calibration Date *">
-                    <input type="date" value={calForm.calibration_date} onChange={setCal('calibration_date')} className="input" />
-                  </F>
-                  <F label="Next Due Date *">
-                    <input type="date" value={calForm.next_due_date} onChange={setCal('next_due_date')} className="input" />
-                  </F>
-                  <F label="Calibrated By Vendor" span2>
-                    <select value={calForm.calibrated_by_vendor} onChange={setCal('calibrated_by_vendor')} className="input">
-                      <option value="">— Internal / Not specified —</option>
-                      {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                    </select>
-                  </F>
-                  <F label="Calibration Notes" span2>
-                    <input value={calForm.notes} onChange={setCal('notes')} className="input" placeholder="Certificate number, lab, observations…" />
-                  </F>
+                <div className="grid-form p-4 gap-3" style={{ background: 'color-mix(in srgb,var(--blue) 3%,var(--bg-3))', borderTop: '1px solid var(--line)' }}>
+                  <FF label="Calibration Date *">
+                    <Input type="date" value={calForm.calibration_date} onChange={setCal('calibration_date')} className={inputCls} />
+                  </FF>
+                  <FF label="Next Due Date *">
+                    <Input type="date" value={calForm.next_due_date} onChange={setCal('next_due_date')} className={inputCls} />
+                  </FF>
+                  <FF label="Calibrated By Vendor" span2>
+                    <Select value={calForm.calibrated_by_vendor || 'none'} onValueChange={v => setCalForm(f => ({ ...f, calibrated_by_vendor: v === 'none' ? '' : v }))}>
+                      <SelectTrigger className={selectCls}><SelectValue placeholder="— Internal / Not specified —" /></SelectTrigger>
+                      <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+                        <SelectItem value="none">— Internal / Not specified —</SelectItem>
+                        {vendors.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FF>
+                  <FF label="Calibration Notes" span2>
+                    <Input value={calForm.notes} onChange={setCal('notes')} placeholder="Certificate number, lab, observations…" className={inputCls} />
+                  </FF>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── Actions ── */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
-            <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 2 }}>
-              {loading
-                ? <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%' }} className="animate-spin" />
-                : <FlaskConical size={13} />}
+          <DialogFooter className="gap-2 sm:gap-2 mt-5 pb-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 border-[var(--line-2)] text-[var(--tx-2)]">Cancel</Button>
+            <Button type="submit" disabled={isSubmitting} className="flex-[2] bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+              {isSubmitting ? <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <FlaskConical size={13} />}
               {editing ? 'Save Changes' : 'Add Instrument'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export default function Instruments() {
-  const { user } = useAuth();
-  const toast = useToast();
-  const isAdmin = user?.role === 'manager';
-  const navigate = useNavigate();
+  const { user }   = useAuth();
+  const toast      = useToast();
+  const qc         = useQueryClient();
+  const isAdmin    = user?.role === 'manager';
+  const navigate   = useNavigate();
 
-  const [instruments, setInstruments] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [modal, setModal] = useState(null);
+  const [modal,        setModal]        = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [importing, setImporting] = useState(false);
+  const [importing,    setImporting]    = useState(false);
   const importRef = useRef();
 
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const instRes = await api.get('instruments/?page_size=200');
-      setInstruments(instRes.data?.results || instRes.data || []);
-    } catch { setInstruments([]); }
+  const { data: instruments = [], isLoading } = useInstruments();
+  const { data: vendors     = [] }            = useVendors();
 
-    if (isAdmin) {
-      try {
-        const vendorRes = await api.get('vendors/?page_size=200');
-        setVendors(vendorRes.data?.results || vendorRes.data || []);
-      } catch { setVendors([]); }
-    }
-    setLoading(false);
-  };
+  const invalidate = () => qc.invalidateQueries({ queryKey: QK.instruments });
 
   const handleExport = async () => {
     try {
       const res = await api.get('instruments/export/', { responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a'); a.href = url;
-      a.download = `instruments_${new Date().toISOString().slice(0,10)}.xlsx`;
+      a.download = `instruments_${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click(); URL.revokeObjectURL(url);
     } catch { toast('Export failed.', 'error'); }
   };
@@ -307,17 +300,14 @@ export default function Instruments() {
       const res = await api.post('instruments/import/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       const { created, updated, errors } = res.data;
       toast(`Import done: ${created} created, ${updated} updated${errors ? `, ${errors} errors` : ''}.`, errors ? 'warning' : 'success');
-      fetchAll();
+      invalidate();
     } catch { toast('Import failed. Check file format.', 'error'); }
     finally { setImporting(false); if (importRef.current) importRef.current.value = ''; }
   };
 
   const handleDelete = async () => {
-    try {
-      await api.delete(`instruments/${deleteTarget.id}/`);
-      toast('Instrument deleted.', 'success');
-      setDeleteTarget(null); fetchAll();
-    } catch { toast('Failed to delete instrument.', 'error'); }
+    try { await api.delete(`instruments/${deleteTarget.id}/`); toast('Instrument deleted.', 'success'); setDeleteTarget(null); invalidate(); }
+    catch { toast('Failed to delete instrument.', 'error'); }
   };
 
   const filtered = instruments.filter(inst => {
@@ -327,9 +317,9 @@ export default function Instruments() {
     return matchSearch && matchStatus;
   });
 
-  if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+  if (isLoading) return (
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-between">
         <div className="shimmer-box" style={{ width: 200, height: 32, borderRadius: 'var(--r-md)' }} />
         <div className="shimmer-box" style={{ width: 120, height: 32, borderRadius: 'var(--r-md)' }} />
       </div>
@@ -338,35 +328,44 @@ export default function Instruments() {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+    <div className="flex flex-col gap-5 page-enter">
+      <div className="page-header">
         <div>
           <h1 className="t-heading">Instruments</h1>
-          <p className="t-body" style={{ marginTop: 2 }}>{instruments.length} instruments in laboratory</p>
+          <p className="t-body mt-0.5">{instruments.length} instruments in laboratory</p>
         </div>
         {isAdmin && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={handleExport} className="btn btn-ghost"><Download size={13} />Export Excel</button>
-            <button onClick={() => importRef.current?.click()} disabled={importing} className="btn btn-ghost">
-              {importing ? <span style={{ width: 13, height: 13, border: '2px solid var(--tx-3)', borderTopColor: 'var(--tx-1)', borderRadius: '50%' }} className="animate-spin" /> : <Upload size={13} />}
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={handleExport} className="border-[var(--line-2)] text-[var(--tx-2)]">
+              <Download size={13} />Export Excel
+            </Button>
+            <Button variant="outline" onClick={() => importRef.current?.click()} disabled={importing} className="border-[var(--line-2)] text-[var(--tx-2)]">
+              {importing ? <span className="w-3.5 h-3.5 border-2 border-[var(--line-2)] border-t-[var(--tx-2)] rounded-full animate-spin" /> : <Upload size={13} />}
               Import Excel
-            </button>
-            <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImport} />
-            <button onClick={() => setModal({ mode: 'add' })} className="btn btn-primary"><Plus size={13} />Add Instrument</button>
+            </Button>
+            <input ref={importRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+            <Button onClick={() => setModal({ mode: 'add' })} className="bg-[var(--brand)] hover:bg-[var(--brand-hover)]">
+              <Plus size={13} />Add Instrument
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="page-toolbar">
-        <div className="toolbar-search">
-          <Search size={14} color="var(--tx-3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          <input type="text" placeholder="Search by name, serial, model, location…" value={search} onChange={e => setSearch(e.target.value)}
-            className="input" style={{ paddingLeft: 32 }} />
+      <div className="flex gap-2.5 flex-wrap">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={14} color="var(--tx-3)" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, serial, model, location…"
+            className="h-9 bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)] placeholder:text-[var(--tx-3)] pl-8" />
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input" style={{ width: 'auto', minWidth: 140 }}>
-          {['all', ...STATUS_OPTIONS].map(s => <option key={s} value={s}>{s === 'all' ? 'All Statuses' : s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>)}
-        </select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 w-auto min-w-[140px] bg-[var(--bg-2)] border-[var(--line-2)] text-[var(--tx-1)]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-[var(--bg-2)] border-[var(--line-2)]">
+            <SelectItem value="all">All Statuses</SelectItem>
+            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{STATUS_META[s]?.label || s}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <p className="t-small">{filtered.length} results</p>
@@ -379,46 +378,37 @@ export default function Instruments() {
           </div>
         </div>
       ) : (
-        <div className="surface" style={{ overflow: 'hidden' }}>
+        <div className="surface overflow-hidden">
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr>
-                  {['Name', 'Serial Number', 'Model', 'Location', 'Status', 'Vendor', ''].map(h => <th key={h}>{h}</th>)}
-                </tr>
+                <tr><th>Name</th><th>Serial Number</th><th>Model</th><th>Location</th><th>Status</th><th>Vendor</th><th></th></tr>
               </thead>
               <tbody>
                 {filtered.map(inst => (
-                  <tr key={inst.id} style={{ cursor: 'pointer' }}>
+                  <tr key={inst.id} className="cursor-pointer group">
                     <td onClick={() => navigate(`/instruments/${inst.id}`)}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 'var(--r-md)', background: 'color-mix(in srgb,var(--blue) 12%,transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'color-mix(in srgb,var(--blue) 12%,transparent)' }}>
                           <FlaskConical size={14} color="var(--blue)" />
                         </div>
-                        <span style={{ fontWeight: 500 }}>{inst.name}</span>
+                        <span className="font-medium">{inst.name}</span>
                       </div>
                     </td>
-                    <td onClick={() => navigate(`/instruments/${inst.id}`)} className="t-mono t-small" style={{ color: 'var(--tx-2)' }}>{inst.serial_number}</td>
+                    <td onClick={() => navigate(`/instruments/${inst.id}`)} className="font-mono t-small text-[var(--tx-2)]">{inst.serial_number}</td>
                     <td onClick={() => navigate(`/instruments/${inst.id}`)}>{inst.model}</td>
                     <td onClick={() => navigate(`/instruments/${inst.id}`)}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MapPin size={11} color="var(--tx-3)" />{inst.location}
-                      </span>
+                      <span className="flex items-center gap-1"><MapPin size={11} color="var(--tx-3)" />{inst.location}</span>
                     </td>
                     <td onClick={() => navigate(`/instruments/${inst.id}`)}><StatusBadge status={inst.status} /></td>
                     <td onClick={() => navigate(`/instruments/${inst.id}`)}>{inst.vendor_name || '—'}</td>
                     <td>
-                      {isAdmin ? (
-                        <div style={{ display: 'flex', gap: 6, opacity: 0 }} className="row-actions"
-                          onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                          onMouseLeave={e => e.currentTarget.style.opacity = 0}
-                        >
-                          <button onClick={e => { e.stopPropagation(); setModal({ mode: 'edit', instrument: inst }); }}
-                            className="btn btn-ghost btn-sm" style={{ padding: '0 8px' }} title="Edit"><Pencil size={12} /></button>
-                          <button onClick={e => { e.stopPropagation(); setDeleteTarget(inst); }}
-                            className="btn btn-danger btn-sm" style={{ padding: '0 8px' }} title="Delete"><Trash2 size={12} /></button>
+                      {isAdmin && (
+                        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setModal({ mode: 'edit', instrument: inst }); }} className="px-2 border-[var(--line-2)] text-[var(--tx-2)] hover:bg-[var(--bg-3)]" title="Edit"><Pencil size={12} /></Button>
+                          <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setDeleteTarget(inst); }} className="px-2 border-destructive/30 text-destructive hover:bg-destructive/10" title="Delete"><Trash2 size={12} /></Button>
                         </div>
-                      ) : <ChevronRight size={14} color="var(--tx-3)" />}
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -428,16 +418,15 @@ export default function Instruments() {
         </div>
       )}
 
-      {modal && <InstrumentModal instrument={modal.mode === 'edit' ? modal.instrument : null} vendors={vendors} onClose={() => setModal(null)} onSuccess={fetchAll} />}
+      {modal && <InstrumentModal instrument={modal.mode === 'edit' ? modal.instrument : null} vendors={vendors} onClose={() => setModal(null)} onSuccess={invalidate} />}
       {deleteTarget && (
         <ConfirmDialog
           title="Delete Instrument"
           message={`Are you sure you want to delete "${deleteTarget.name}" (${deleteTarget.serial_number})? This cannot be undone.`}
-          onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
-
-      <style>{`.data-table tbody tr:hover .row-actions { opacity: 1 !important; }`}</style>
     </div>
   );
 }

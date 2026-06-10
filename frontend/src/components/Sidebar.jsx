@@ -84,9 +84,9 @@ export default function Sidebar() {
         }}>
           <div style={{
             width: 28, height: 28, borderRadius: 'var(--r-md)',
-            background: 'var(--accent)',
+            background: 'var(--brand)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, boxShadow: '0 2px 8px color-mix(in srgb,var(--accent) 40%,transparent)',
+            flexShrink: 0, boxShadow: '0 2px 8px color-mix(in srgb,var(--brand) 40%,transparent)',
           }}>
             {settings?.logo_url
               ? <img src={settings.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} alt="" />
