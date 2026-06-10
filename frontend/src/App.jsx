@@ -29,10 +29,10 @@ function AppRoutes() {
       <Route path="/maintenance" element={<ProtectedRoute><Layout><Maintenance /></Layout></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><Layout><Inventory /></Layout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute roles={['manager']}><Layout><Reports /></Layout></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute roles={['manager']}><Layout><Settings /></Layout></ProtectedRoute>} />
-      <Route path="/audit-log" element={<ProtectedRoute roles={['manager']}><Layout><AuditLog /></Layout></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute roles={['manager']}><Layout><UserManagement /></Layout></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={['manager', 'admin']}><Layout><Reports /></Layout></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute roles={['manager', 'admin']}><Layout><Settings /></Layout></ProtectedRoute>} />
+      <Route path="/audit-log" element={<ProtectedRoute roles={['manager', 'admin']}><Layout><AuditLog /></Layout></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute roles={['manager', 'admin']}><Layout><UserManagement /></Layout></ProtectedRoute>} />
       <Route path="/vendors" element={<ProtectedRoute><Layout><Vendors /></Layout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

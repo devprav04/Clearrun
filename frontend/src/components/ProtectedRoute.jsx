@@ -9,7 +9,7 @@ export default function ProtectedRoute({ children, roles }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && user && !roles.includes(user.role)) {
+  if (roles && user && !roles.includes(user.role) && !user.is_superuser) {
     return (
       <div className="flex items-center justify-center" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
         <div className="text-center">
