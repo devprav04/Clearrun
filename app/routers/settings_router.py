@@ -28,7 +28,7 @@ def _cs_out(cs: CompanySettings, request: Request) -> CompanySettingsOut:
 
 
 @router.get('/company/', response_model=CompanySettingsOut)
-def get_company(request: Request, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def get_company(request: Request, db: Session = Depends(get_db)):
     cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
     if not cs:
         cs = CompanySettings(id=1)

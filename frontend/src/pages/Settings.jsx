@@ -69,7 +69,7 @@ function CompanyTab() {
       await api.patch('settings/company/', form);
       if (logoFile) {
         const fd = new FormData();
-        fd.append('logo', logoFile);
+        fd.append('file', logoFile);
         await api.post('settings/company/logo/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
         setLogoFile(null);
       }
