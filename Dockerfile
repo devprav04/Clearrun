@@ -15,9 +15,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
-COPY start.sh ./start.sh
-RUN chmod +x ./start.sh
+COPY run.py ./run.py
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 EXPOSE 8080
-ENTRYPOINT ["/app/start.sh"]
+CMD ["python", "run.py"]
